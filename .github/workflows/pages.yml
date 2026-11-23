@@ -36,6 +36,8 @@ jobs:
   build:
     name: Typecheck, test, build
     runs-on: ubuntu-latest
+    outputs:
+      pages: ${{ steps.configure.outcome == 'success' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -83,16 +85,34 @@ jobs:
       - name: Disable Jekyll processing
         run: touch public/.nojekyll
 
-      # `enablement: true` turns Pages on (build type: GitHub Actions) the first
-      # time this runs, so merging the PR is the only setup step needed.
+      # Creating a Pages site needs repo-admin rights the workflow token does
+      # not have, so configure-pages is allowed to fail: if Pages is still off,
+      # the build stays green and the summary tells you the one setting to flip.
       - name: Configure Pages
+        id: configure
         if: github.event_name != 'pull_request'
+        continue-on-error: true
         uses: actions/configure-pages@v5
         with:
           enablement: true
 
+      - name: Explain if Pages is not enabled
+        if: github.event_name != 'pull_request' && steps.configure.outcome != 'success'
+        run: |
+          {
+            echo "### GitHub Pages is not enabled yet"
+            echo ""
+            echo "Typecheck, tests and the static build all passed. There is simply no"
+            echo "Pages site to publish to."
+            echo ""
+            echo "**One-time setup:** Settings → Pages → Build and deployment →"
+            echo "Source: **GitHub Actions**. Then re-run this workflow"
+            echo "(Actions → Deploy dashboard → Re-run job) or push any commit."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=GitHub Pages not enabled::Settings -> Pages -> Build and deployment -> Source: GitHub Actions, then re-run this workflow. Build and tests passed."
+
       - name: Upload Pages artifact
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && steps.configure.outcome == 'success'
         uses: actions/upload-pages-artifact@v3
         with:
           path: public
@@ -100,7 +120,7 @@ jobs:
   deploy:
     name: Publish to Pages
     needs: build
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && needs.build.outputs.pages == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

@@ -13,7 +13,7 @@
  * Every candidate draw is run through `validateDraw()` from the math engine, so
  * a malformed source can never poison the D1 table.
  */
-import { formatDrawDate, isIsoDate, validateDraw, type Draw } from './mathEngine';
+import { formatDrawDate, gameForDate, isIsoDate, validateDraw, type Draw } from './mathEngine';
 
 export interface ParseOptions {
   /** Game to assume when the page does not name one. */
@@ -22,6 +22,13 @@ export interface ParseOptions {
   requireMachine?: boolean;
   /** Reference date used to complete partial dates such as "Sat 21 Nov". */
   today?: string;
+  /**
+   * Pin each row's game to NLA's weekday schedule (Mon = Monday Special …
+   * Sat = National Weekly) and reject Sundays, where no 5/90 evening game is
+   * drawn. Default true: results pages are unreliable at labelling the game,
+   * but a date is unambiguous. Set false for an unusual rescheduled draw.
+   */
+  respectSchedule?: boolean;
 }
 
 export interface ParseResult {
@@ -430,20 +437,41 @@ export function validateCandidates(candidates: RawCandidate[], opts: ParseOption
       errors.push(`candidate ${i + 1}: ${result.errors.join('; ')}`);
       continue;
     }
-    const signature = [...result.draw.winning, ...result.draw.machine].join(',');
-    const previous = seen.get(result.draw.draw_date);
+    // Trust the calendar over the page. Aggregators routinely label every row
+    // with whichever game name appears first in their markup, and some list
+    // Sunday/ASEDA draws alongside the six 5/90 evening games.
+    let gameName = result.draw.game_name;
+    if (opts.respectSchedule !== false) {
+      const scheduled = gameForDate(result.draw.draw_date);
+      if (!scheduled) {
+        warnings.push(
+          `${result.draw.draw_date} is a Sunday — no NLA 5/90 evening game is drawn that day; row skipped`
+        );
+        continue;
+      }
+      if (gameName !== scheduled) {
+        warnings.push(
+          `${result.draw.draw_date}: source said "${gameName}", weekday schedule says "${scheduled}" — stored as "${scheduled}"`
+        );
+        gameName = scheduled;
+      }
+    }
+    const draw: Draw = { ...result.draw, game_name: gameName };
+
+    const signature = [...draw.winning, ...draw.machine].join(',');
+    const previous = seen.get(draw.draw_date);
     if (previous !== undefined) {
       // Two strategies often find the same row — that is agreement, not a
       // conflict, so stay quiet unless the numbers actually disagree.
       if (previous !== signature) {
         warnings.push(
-          `conflicting rows for ${result.draw.draw_date} in source (${previous} vs ${signature}) — kept the first`
+          `conflicting rows for ${draw.draw_date} in source (${previous} vs ${signature}) — kept the first`
         );
       }
       continue;
     }
-    seen.set(result.draw.draw_date, signature);
-    draws.push(result.draw);
+    seen.set(draw.draw_date, signature);
+    draws.push(draw);
   }
 
   draws.sort((a, b) => b.draw_date.localeCompare(a.draw_date)); // newest first

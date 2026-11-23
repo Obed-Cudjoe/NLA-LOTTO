@@ -597,7 +597,19 @@ runs, double-clicked refresh buttons and overlapping scrapes are all idempotent.
 The bundled `data/draws.json` / `schema.sql` seed contains **60 synthetic but
 calendar-realistic draws** (Mon–Sat, one game per evening, newest on
 2026-11-21). They exist so the dashboard is useful on first deploy. They are
-**not official NLA results** — replace them by refreshing or importing.
+**not official NLA results** — replace them by refreshing or importing. Seed rows
+are only replaced on the dates your source actually publishes, so a fresh history
+fills in from the newest date backwards; check the Ledger tab to see what is real.
+
+### Game names come from the calendar, not the page
+
+Aggregator pages are unreliable at labelling: they often stamp every row with
+whichever game name appears first in their markup, and several list Sunday/ASEDA
+draws next to the six 5/90 evening games. So the scraper pins each row to NLA's
+weekday schedule — Monday Special, Lucky Tuesday, Midweek, Fortune Thursday,
+Friday Bonanza, National Weekly — and **rejects Sunday rows**, reporting both
+corrections in the refresh warnings. A genuinely rescheduled draw can still be
+imported by hand, or parsed with `respectSchedule: false`.
 
 ### Scraper design (`src/scraper.ts`)
 
@@ -727,6 +739,7 @@ is that it will keep telling you so, with evidence, instead of selling you hope.
 | Page loads but says "No draws loaded" | Static mode needs `data/draws.json`; run `npm run build`, and check the file is committed |
 | `no such table: draws` | Apply `schema.sql` to the right target (`--remote` vs `--local`) |
 | Refresh returns `422` with "No draw rows recognised" | The source page changed layout; paste the page into the Ledger importer, or add a strategy in `src/scraper.ts` |
+| Every draw shows the same game name, or a Sunday row appears | Fixed in v1.1: rows are pinned to the weekday schedule and Sundays are rejected. Warnings in the refresh response name every relabelled/dropped row |
 | Refresh returns `401` | Missing/wrong `x-api-key`, or `ADMIN_KEY` was never set (`npx wrangler secret put ADMIN_KEY`) |
 | Browser refresh fails with a fetch error | CORS — use the GitHub Action, the Data-tab workflow trigger, or paste the page |
 | Pages shows a 404 after deploy | Settings → Pages → Source must be "GitHub Actions", and the workflow must have run on `main` |

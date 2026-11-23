@@ -121,7 +121,7 @@ describe('parsePayload — JSON', () => {
           mac1: 12, mac2: 4, mac3: 66, mac4: 7, mac5: 19,
         },
         {
-          date: '2026-11-22',
+          date: '2026-11-24',
           game: 'National Weekly',
           winning: '3,14,15,92,97'.replace('92', '92').replace('97', '97'), // 92/97 out of range on purpose
           machine: '1,2,3,4,5',
@@ -131,12 +131,12 @@ describe('parsePayload — JSON', () => {
     const result = parsePayload(payload, 'application/json');
     expect(result.draws.some((d) => d.draw_date === '2026-11-21')).toBe(true);
     // The deliberately invalid row must be rejected, not silently stored.
-    expect(result.draws.some((d) => d.draw_date === '2026-11-22')).toBe(false);
+    expect(result.draws.some((d) => d.draw_date === '2026-11-24')).toBe(false);
   });
 
   it('accepts a single ten-number array as one draw', () => {
     const result = validateCandidates(
-      [{ draw_date: '2026-11-01', game_name: 'Midweek', winning: [1, 2, 3, 4, 5], machine: [6, 7, 8, 9, 10] }],
+      [{ draw_date: '2026-11-02', game_name: 'Midweek', winning: [1, 2, 3, 4, 5], machine: [6, 7, 8, 9, 10] }],
       {}
     );
     expect(result.draws).toHaveLength(1);
@@ -144,10 +144,50 @@ describe('parsePayload — JSON', () => {
   });
 });
 
+describe('weekday schedule guard', () => {
+  const monday = { winning: [1, 2, 3, 4, 5], machine: [6, 7, 8, 9, 10] };
+
+  it('skips Sundays, where no 5/90 evening game is drawn', () => {
+    const result = validateCandidates(
+      [{ draw_date: '2026-11-22', game_name: 'Monday Special', ...monday }],
+      {}
+    );
+    expect(result.draws).toHaveLength(0);
+    expect(result.warnings.join(' ')).toMatch(/Sunday/i);
+  });
+
+  it('relabels a mislabelled weekday row from the calendar', () => {
+    const result = validateCandidates(
+      [{ draw_date: '2026-11-20', game_name: 'Monday Special', ...monday }],
+      {}
+    );
+    expect(result.draws).toHaveLength(1);
+    expect(result.draws[0].game_name).toBe('Friday Bonanza');
+    expect(result.warnings.join(' ')).toMatch(/weekday schedule/i);
+  });
+
+  it('keeps the source label when respectSchedule is disabled', () => {
+    const result = validateCandidates(
+      [{ draw_date: '2026-11-20', game_name: 'Monday Special', ...monday }],
+      { respectSchedule: false }
+    );
+    expect(result.draws[0].game_name).toBe('Monday Special');
+    expect(result.warnings).toHaveLength(0);
+  });
+
+  it('applies the schedule through parsePayload too', () => {
+    const html = `<h3>Monday Special</h3>
+      <div><span>2026-11-19</span><div>4 19 33 58 71</div><div>Machine: 8 26 45 62 88</div></div>`;
+    const result = parsePayload(html, 'text/html');
+    expect(result.draws).toHaveLength(1);
+    expect(result.draws[0].game_name).toBe('Fortune Thursday');
+  });
+});
+
 describe('validation guardrails', () => {
   it('skips rows without machine numbers instead of storing half a draw', () => {
     const result = validateCandidates(
-      [{ draw_date: '2026-11-01', game_name: 'Midweek', winning: [1, 2, 3, 4, 5], machine: [] }],
+      [{ draw_date: '2026-11-02', game_name: 'Midweek', winning: [1, 2, 3, 4, 5], machine: [] }],
       {}
     );
     expect(result.draws).toHaveLength(0);
@@ -156,7 +196,7 @@ describe('validation guardrails', () => {
 
   it('rejects overlaps between winning and machine numbers', () => {
     const result = validateCandidates(
-      [{ draw_date: '2026-11-01', game_name: 'Midweek', winning: [1, 2, 3, 4, 5], machine: [5, 6, 7, 8, 9] }],
+      [{ draw_date: '2026-11-02', game_name: 'Midweek', winning: [1, 2, 3, 4, 5], machine: [5, 6, 7, 8, 9] }],
       {}
     );
     expect(result.draws).toHaveLength(0);
@@ -164,9 +204,11 @@ describe('validation guardrails', () => {
   });
 
   it('collapses identical rows found by two strategies without warning', () => {
+    // Monday Special on a Monday, so the schedule guard has nothing to say —
+    // this test is only about duplicate suppression.
     const candidate = {
-      draw_date: '2026-11-01',
-      game_name: 'Midweek',
+      draw_date: '2026-11-02',
+      game_name: 'Monday Special',
       winning: [1, 2, 3, 4, 5],
       machine: [6, 7, 8, 9, 10],
     };
@@ -178,8 +220,8 @@ describe('validation guardrails', () => {
   it('warns when two rows disagree for the same date', () => {
     const result = validateCandidates(
       [
-        { draw_date: '2026-11-01', game_name: 'Midweek', winning: [1, 2, 3, 4, 5], machine: [6, 7, 8, 9, 10] },
-        { draw_date: '2026-11-01', game_name: 'Midweek', winning: [11, 12, 13, 14, 15], machine: [16, 17, 18, 19, 20] },
+        { draw_date: '2026-11-02', game_name: 'Midweek', winning: [1, 2, 3, 4, 5], machine: [6, 7, 8, 9, 10] },
+        { draw_date: '2026-11-02', game_name: 'Midweek', winning: [11, 12, 13, 14, 15], machine: [16, 17, 18, 19, 20] },
       ],
       {}
     );

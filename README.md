@@ -70,9 +70,14 @@ app says that in the UI too.
   means 45% of the signal).
 - Advanced: Beta prior strength, Markov shrinkage α, machine-number weight,
   expected gap λ, and toggles for each combinatorial filter.
-- **Refresh Latest Results** — prompts for your `ADMIN_KEY` and stores it in
-  `localStorage` (Worker mode), or walks you through the GitHub sync route
-  (static mode).
+- **Refresh Latest Results** (Worker mode) — prompts for your `ADMIN_KEY`, stores
+  it in `localStorage`, and calls `POST /api/refresh`.
+- **Refresh via GitHub** (static mode) — the same button, relabelled because a
+  browser cannot read a results site (no CORS headers). With a fine-grained
+  token in the Data tab it dispatches the `Refresh draw results` workflow and
+  polls `data/draws.json` until the new commit lands; without a token it takes
+  you straight to the Data tab, which has the working controls. In normal
+  operation you never press it: the 21:00 GMT cron already did the work.
 
 **Backtester tab**
 - Strict walk-forward simulation: draw *t* is predicted using only draws
@@ -176,6 +181,18 @@ npm run dev:static
   (comma-separate several URLs; they are tried in order).
 
 ### 5. Refresh from the browser
+
+A static site has no server, and results sites send no `Access-Control-Allow-Origin`
+header, so **no** in-page fetch of a results page can ever succeed — that is a browser
+security rule, not a bug in the app. On GitHub Pages "refresh" means "ask GitHub to run
+the workflow":
+
+- **No token:** the button opens the Data tab with a link to
+  `…/actions/workflows/refresh-draws.yml`; press *Run workflow* there.
+- **With a token:** the button dispatches that workflow from the page and polls for the
+  new commit, so the dashboard updates itself in a minute or two.
+
+Either way, the daily cron does this on its own at 21:00 GMT.
 
 In the Data tab, optionally paste a fine-grained GitHub token
 (`contents: write` + `actions: write`, this repo only, short expiry). Then:

@@ -32,6 +32,7 @@ import {
   zTone,
   zWidth,
 } from './format';
+import { guessRepo, workflowUrl } from './store';
 import type { AppState, View } from './types';
 
 const TABS: Array<{ id: View; label: string; icon: string }> = [
@@ -75,8 +76,9 @@ export function renderHeader(state: AppState): string {
       <div class="flex flex-wrap items-center gap-2">
         ${modeBadge}
         ${state.lastSync ? badge(`synced ${state.lastSync}`, 'muted') : ''}
-        <button data-action="refresh" class="btn btn-primary" type="button">
-          <span class="text-base leading-none">↻</span> Refresh Latest Results
+        <button data-action="refresh" class="btn btn-primary" type="button"
+          title="${state.mode === 'static' ? 'Static site: dispatches the GitHub Actions refresh (needs a token in the Data tab)' : 'Fetch the latest results from the source and store them in D1'}">
+          <span class="text-base leading-none">↻</span> ${state.mode === 'static' ? 'Refresh via GitHub' : 'Refresh Latest Results'}
         </button>
       </div>
     </div>
@@ -943,7 +945,18 @@ export function renderSettings(state: AppState): string {
         <button type="button" data-action="trigger-workflow" class="btn btn-ghost mt-2 w-full" ${staticMode ? '' : 'disabled'}>
           Trigger refresh workflow on GitHub
         </button>
+        <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px]">
+          <a class="text-sky-300 underline decoration-dotted hover:text-sky-200" target="_blank" rel="noreferrer"
+             href="${esc(workflowUrl(guessRepo(state.settings.ghRepo)))}">Open the refresh workflow ↗</a>
+          <a class="text-sky-300 underline decoration-dotted hover:text-sky-200" target="_blank" rel="noreferrer"
+             href="https://github.com/settings/personal-access-tokens/new">Create a fine-grained token ↗</a>
+        </div>
         <p class="mt-2 text-[10px] leading-snug text-slate-500">
+          A browser cannot read results sites directly — they send no CORS headers — so on a
+          static site "refresh" means "ask GitHub to run the workflow". That is also why the
+          daily 21:00 GMT cron exists: normally you never press this button at all.
+        </p>
+        <p class="mt-1 text-[10px] leading-snug text-slate-500">
           Never paste a classic token with full repo scope. Fine-grained, single-repo,
           contents+actions write, short expiry.
         </p>

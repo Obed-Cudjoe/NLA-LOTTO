@@ -125,6 +125,81 @@ describe('dashboard (static mode)', () => {
     expect(appText()).toContain('How this app is honest with you');
   });
 
+  it('labels the refresh control honestly on a static host', async () => {
+    await click('[data-action="tab"][data-tab="deduce"]');
+    await waitFor(() => appText().includes('Refresh via GitHub'), 'static refresh label');
+    expect(appText()).not.toContain('Refresh Latest Results');
+  });
+
+  it('sends a static refresh to GitHub instead of a doomed cross-origin fetch', async () => {
+    const calls: string[] = [];
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push(typeof input === 'string' ? input : String((input as Request).url ?? input));
+      return original(input as RequestInfo, init);
+    }) as typeof fetch;
+    try {
+      await click('[data-action="refresh"]');
+      await waitFor(() => appText().includes('runs on GitHub'), 'guidance toast');
+      // It never tries to read the results site directly (that only produces a
+      // console CORS error), and it never calls the GitHub API without a token.
+      expect(calls.some((u) => u.includes('24lottos'))).toBe(false);
+      expect(calls.some((u) => u.includes('api.github.com'))).toBe(false);
+      // It lands on the tab that holds the controls which actually work.
+      expect(state().view).toBe('settings');
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it('links to the workflow page and the token form', async () => {
+    const repo = state().settings.ghRepo;
+    state().settings.ghRepo = 'Obed-Cudjoe/NLA-LOTTO';
+    try {
+      await click('[data-action="tab"][data-tab="settings"]');
+      await waitFor(
+        () => Boolean(document.querySelector('a[href*="actions/workflows/refresh-draws.yml"]')),
+        'workflow deep link'
+      );
+      const link = document.querySelector<HTMLAnchorElement>('a[href*="actions/workflows/refresh-draws.yml"]');
+      expect(link?.href).toBe(
+        'https://github.com/Obed-Cudjoe/NLA-LOTTO/actions/workflows/refresh-draws.yml'
+      );
+      expect(link?.getAttribute('target')).toBe('_blank');
+      expect(document.querySelector('a[href*="personal-access-tokens/new"]')).not.toBeNull();
+    } finally {
+      state().settings.ghRepo = repo;
+    }
+  });
+
+  it('dispatches the workflow when a token is configured', async () => {
+    const calls: string[] = [];
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : String((input as Request).url ?? input);
+      calls.push(url);
+      if (url.includes('api.github.com')) return new Response('{}', { status: 500 });
+      return original(input as RequestInfo, init);
+    }) as typeof fetch;
+    const repo = state().settings.ghRepo;
+    const token = state().settings.ghToken;
+    state().settings.ghRepo = 'Obed-Cudjoe/NLA-LOTTO';
+    state().settings.ghToken = 'github_pat_test';
+    try {
+      await click('[data-action="refresh"]');
+      await waitFor(() => calls.some((u) => u.includes('/dispatches')), 'workflow dispatch call');
+      expect(calls.some((u) => u.endsWith('/actions/workflows/refresh-draws.yml/dispatches'))).toBe(true);
+      await waitFor(
+        () => /GitHub API responded 500|Could not dispatch/.test(appText()),
+        'dispatch failure surfaced'
+      );
+    } finally {
+      globalThis.fetch = original;
+      state().settings.ghRepo = repo;
+      state().settings.ghToken = token;
+    }
+  });
+
   it('never leaks undefined, NaN or [object Object] into the DOM', async () => {
     for (const tab of ['deduce', 'ledger', 'settings']) {
       await click(`[data-action="tab"][data-tab="${tab}"]`);

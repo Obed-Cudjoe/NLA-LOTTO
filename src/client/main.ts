@@ -192,7 +192,8 @@ async function loadDraws(): Promise<void> {
     const data = await readJson(res);
     remote = ((data.draws ?? []) as unknown[]).map(coerceDraw).filter((d: Draw | null): d is Draw => Boolean(d));
   } else {
-    const res = await fetch('data/draws.json', { cache: 'no-cache' });
+    // The query string defeats the Pages CDN cache when we poll after a refresh.
+    const res = await fetch(`data/draws.json?v=${Date.now()}`, { cache: 'no-cache' });
     if (!res.ok) throw new Error(`Could not load data/draws.json (HTTP ${res.status}). Run npm run build.`);
     const data = (await res.json()) as unknown;
     const list = Array.isArray(data) ? data : ((data as { draws?: unknown[] }).draws ?? []);
@@ -298,50 +299,66 @@ async function refreshWorker(): Promise<void> {
   }
 }
 
-/** Static mode: try the source directly (CORS permitting), else guide the user. */
+const repoGuess = (): string => store.guessRepo(state.settings.ghRepo);
+const actionsUrl = (): string => store.workflowUrl(repoGuess());
+
+/**
+ * Static mode has no server, and results sites never send CORS headers, so an
+ * in-browser refresh cannot work — not here, not with a different source. The
+ * daily job belongs to GitHub Actions. With a token we dispatch it right now
+ * and watch for the resulting commit; without one we land the user on the Data
+ * tab, which holds the controls that actually do something.
+ */
 async function refreshStatic(): Promise<void> {
-  const url = state.settings.sourceUrl.trim();
-  if (!url) {
-    toast('Add a results source URL in the Data tab first.', 'warn');
+  const repo = repoGuess();
+  const token = state.settings.ghToken.trim();
+
+  if (!repo || !token) {
+    toast(
+      'Static site: the daily refresh runs on GitHub, not in your browser (results sites block cross-origin reads).\n' +
+        `Open Actions → "Refresh draw results" → Run workflow, or paste a token below to dispatch it from here.\n${actionsUrl()}`,
+      'warn'
+    );
     state.view = 'settings';
+    store.saveUi({ view: 'settings' });
     render();
     return;
   }
+
   state.busy = 'refresh';
   render();
-  try {
-    const res = await fetch(url, { headers: { accept: 'text/html,application/json' } });
-    if (!res.ok) throw new Error(`source responded HTTP ${res.status}`);
-    const body = await res.text();
-    const parsed = parsePayload(body, res.headers.get('content-type') ?? '', {
-      defaultGame: 'Monday Special',
-      today: new Date().toISOString().slice(0, 10),
-    });
-    state.busy = null;
-    if (!parsed.draws.length) {
-      toast(`Source reached but no draws parsed. ${parsed.errors[0] ?? ''}`, 'bad');
+  const result = await store.triggerRefreshWorkflow(repo, token);
+  state.busy = null;
+  render();
+  if (!result.ok) {
+    toast(result.message, 'bad');
+    return;
+  }
+  toast(`${result.message} Watching for the new draw…`, 'ok');
+  watchForNewDraws(state.draws.at(-1)?.draw_date ?? '');
+}
+
+/**
+ * GitHub Pages serves data/draws.json through a CDN, so poll with a
+ * cache-busting query until the newest date moves (or we give up).
+ */
+async function watchForNewDraws(before: string, tries = 8): Promise<void> {
+  for (let i = 0; i < tries; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 15000));
+    try {
+      await loadDraws();
+    } catch {
+      continue;
+    }
+    const newest = state.draws.at(-1)?.draw_date ?? '';
+    if (newest !== before) {
+      recompute();
       render();
+      toast(`New draw picked up: ${newest}. Scores recomputed.`, 'ok');
       return;
     }
-    applyLocalDraws(parsed.draws);
-    toast(
-      `Parsed ${parsed.draws.length} draw(s) from the source into local storage. Commit them to data/draws.json to make them permanent.`,
-      'ok'
-    );
-  } catch (err) {
-    state.busy = null;
-    const message = err instanceof Error ? err.message : String(err);
-    toast(
-      `Browser fetch blocked (${message}).\n`+
-        'This is normal: most results sites do not allow cross-origin reads.\n'+
-        'Use one of these instead:\n'+
-        '  • GitHub → Actions → "Refresh draw results" → Run workflow\n'+
-        '  • Data tab → "Trigger refresh workflow on GitHub" (with a token)\n'+
-        '  • Or paste the page/CSV into the Ledger importer.',
-      'warn'
-    );
-    render();
   }
+  toast('GitHub has not published a new draw yet. Give it another minute, or check the Actions run.', 'warn');
 }
 
 function applyLocalDraws(draws: Draw[]): void {
@@ -493,7 +510,8 @@ async function pullSourceIntoTextarea(): Promise<void> {
     }
   } catch (err) {
     toast(
-      `Direct fetch blocked: ${err instanceof Error ? err.message : String(err)}. Use the GitHub Action or copy-paste instead.`,
+      `Direct fetch blocked: ${err instanceof Error ? err.message : String(err)}. ` +
+        'Copy the page text from your browser (Ctrl+A, Ctrl+C) and paste it into the box instead — parsing happens locally.' ,
       'bad'
     );
   }
@@ -791,7 +809,14 @@ async function boot(): Promise<void> {
   }
   try {
     state.mode = await detectMode();
-    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.0.0' };
+    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.1.0' };
+    if (!state.settings.ghRepo.trim()) {
+      const guess = repoGuess();
+      if (guess) {
+        state.settings.ghRepo = guess;
+        store.saveSettings(state.settings);
+      }
+    }
     await loadDraws();
     recompute();
     render();

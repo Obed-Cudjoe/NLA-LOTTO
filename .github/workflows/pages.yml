@@ -1,0 +1,110 @@
+name: Deploy dashboard (GitHub Pages)
+
+# This is the no-Cloudflare path. It builds the static dashboard and publishes
+# ./public to GitHub Pages. It also re-deploys automatically after the daily
+# data refresh workflow commits a new draw — pushes made with GITHUB_TOKEN do
+# not trigger other workflows, so we listen on workflow_run explicitly.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'public/**'
+      - 'src/**'
+      - 'data/**'
+      - 'scripts/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/pages.yml'
+  pull_request:
+    branches: [main]
+  workflow_run:
+    workflows: ['Refresh draw results']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Typecheck, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee "${RUNNER_TEMP:-/tmp}/vitest.log"
+
+      - name: Surface test failures as annotations
+        if: failure()
+        run: |
+          LOG="${RUNNER_TEMP:-/tmp}/vitest.log"
+          if [ -f "$LOG" ]; then
+            echo "### Vitest output (tail)" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            tail -n 120 "$LOG" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            grep -E "^ *(×|FAIL)" "$LOG" | head -n 15 | while IFS= read -r line; do
+              echo "::error title=Test failure::$line"
+            done
+          fi
+          node -v
+          npm -v
+
+      - name: Build static dashboard
+        run: npm run build
+
+      - name: Sanity-check build output
+        run: |
+          test -f public/index.html
+          test -f public/assets/app.js
+          test -f public/data/draws.json
+          node -e "const d=require('./public/data/draws.json'); console.log('draws staged:', d.length)"
+
+      - name: Disable Jekyll processing
+        run: touch public/.nojekyll
+
+      # `enablement: true` turns Pages on (build type: GitHub Actions) the first
+      # time this runs, so merging the PR is the only setup step needed.
+      - name: Configure Pages
+        if: github.event_name != 'pull_request'
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+  deploy:
+    name: Publish to Pages
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

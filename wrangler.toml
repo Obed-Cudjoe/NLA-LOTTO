@@ -1,0 +1,49 @@
+# ---------------------------------------------------------------------------
+# Ghana NLA 5/90 Mathematical & Logical Deduction Engine
+# ---------------------------------------------------------------------------
+# Deploy:   npm run deploy            (= npm run build && npx wrangler deploy)
+# Dev:      npm run dev
+# Secrets:  npx wrangler secret put ADMIN_KEY
+# D1 id:    npx wrangler d1 create nla-lotto   → paste `database_id` below
+# ---------------------------------------------------------------------------
+
+name = "ghana-nla-5-90-engine"
+main = "src/index.ts"
+compatibility_date = "2025-11-01"
+workers_dev = true
+
+# The dashboard (public/index.html + public/assets/app.js) ships with the Worker.
+# Requests to /api/* wake the Worker; everything else is served as a static asset.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
+# --- D1 ---------------------------------------------------------------------
+[[d1_databases]]
+binding = "DB"
+database_name = "nla-lotto"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+# migrations_dir = "migrations"
+
+# --- Cron: 21:00 UTC daily, after every 5/90 evening draw -------------------
+[triggers]
+crons = ["0 21 * * *"]
+
+# --- Plain-text configuration ----------------------------------------------
+[vars]
+# Where POST /api/refresh and the cron trigger look for new results.
+# Point this at any page that publishes 5/90 winning + machine numbers.
+RESULTS_SOURCE_URL = "https://www.24lottos.com/lottery/ghana-lotto/results"
+# Game assumed when a source does not name one.
+DEFAULT_GAME = "Monday Special"
+
+# ADMIN_KEY is a SECRET — never put it here. Use:
+#   npx wrangler secret put ADMIN_KEY
+
+[observability]
+enabled = true
+
+# Local development only (wrangler dev) — `--local` D1 lives in .wrangler/state.
+# Seed it with: npm run db:init:local

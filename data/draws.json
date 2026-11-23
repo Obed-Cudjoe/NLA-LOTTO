@@ -1,0 +1,1082 @@
+[
+  {
+    "draw_date": "2026-09-14",
+    "game_name": "Monday Special",
+    "winning": [
+      51,
+      16,
+      61,
+      31,
+      81
+    ],
+    "machine": [
+      1,
+      9,
+      25,
+      82,
+      26
+    ]
+  },
+  {
+    "draw_date": "2026-09-15",
+    "game_name": "Lucky Tuesday",
+    "winning": [
+      45,
+      41,
+      17,
+      84,
+      78
+    ],
+    "machine": [
+      5,
+      40,
+      14,
+      79,
+      25
+    ]
+  },
+  {
+    "draw_date": "2026-09-16",
+    "game_name": "Midweek",
+    "winning": [
+      12,
+      80,
+      9,
+      13,
+      52
+    ],
+    "machine": [
+      49,
+      62,
+      43,
+      74,
+      83
+    ]
+  },
+  {
+    "draw_date": "2026-09-17",
+    "game_name": "Fortune Thursday",
+    "winning": [
+      43,
+      66,
+      90,
+      69,
+      5
+    ],
+    "machine": [
+      61,
+      11,
+      38,
+      50,
+      18
+    ]
+  },
+  {
+    "draw_date": "2026-09-18",
+    "game_name": "Friday Bonanza",
+    "winning": [
+      75,
+      14,
+      68,
+      3,
+      65
+    ],
+    "machine": [
+      25,
+      27,
+      70,
+      32,
+      80
+    ]
+  },
+  {
+    "draw_date": "2026-09-19",
+    "game_name": "National Weekly",
+    "winning": [
+      18,
+      35,
+      60,
+      28,
+      24
+    ],
+    "machine": [
+      27,
+      70,
+      29,
+      40,
+      54
+    ]
+  },
+  {
+    "draw_date": "2026-09-21",
+    "game_name": "Monday Special",
+    "winning": [
+      55,
+      60,
+      37,
+      46,
+      73
+    ],
+    "machine": [
+      18,
+      19,
+      61,
+      15,
+      14
+    ]
+  },
+  {
+    "draw_date": "2026-09-22",
+    "game_name": "Lucky Tuesday",
+    "winning": [
+      24,
+      56,
+      8,
+      38,
+      37
+    ],
+    "machine": [
+      6,
+      33,
+      71,
+      53,
+      7
+    ]
+  },
+  {
+    "draw_date": "2026-09-23",
+    "game_name": "Midweek",
+    "winning": [
+      59,
+      31,
+      49,
+      32,
+      86
+    ],
+    "machine": [
+      45,
+      79,
+      81,
+      37,
+      75
+    ]
+  },
+  {
+    "draw_date": "2026-09-24",
+    "game_name": "Fortune Thursday",
+    "winning": [
+      72,
+      33,
+      73,
+      52,
+      60
+    ],
+    "machine": [
+      31,
+      28,
+      32,
+      24,
+      34
+    ]
+  },
+  {
+    "draw_date": "2026-09-25",
+    "game_name": "Friday Bonanza",
+    "winning": [
+      43,
+      68,
+      79,
+      72,
+      4
+    ],
+    "machine": [
+      81,
+      13,
+      39,
+      73,
+      45
+    ]
+  },
+  {
+    "draw_date": "2026-09-26",
+    "game_name": "National Weekly",
+    "winning": [
+      46,
+      48,
+      4,
+      65,
+      31
+    ],
+    "machine": [
+      16,
+      82,
+      83,
+      34,
+      8
+    ]
+  },
+  {
+    "draw_date": "2026-09-28",
+    "game_name": "Monday Special",
+    "winning": [
+      66,
+      23,
+      39,
+      21,
+      74
+    ],
+    "machine": [
+      7,
+      83,
+      84,
+      86,
+      81
+    ]
+  },
+  {
+    "draw_date": "2026-09-29",
+    "game_name": "Lucky Tuesday",
+    "winning": [
+      6,
+      16,
+      86,
+      37,
+      25
+    ],
+    "machine": [
+      12,
+      21,
+      70,
+      87,
+      59
+    ]
+  },
+  {
+    "draw_date": "2026-09-30",
+    "game_name": "Midweek",
+    "winning": [
+      46,
+      4,
+      47,
+      31,
+      65
+    ],
+    "machine": [
+      83,
+      64,
+      51,
+      40,
+      74
+    ]
+  },
+  {
+    "draw_date": "2026-10-01",
+    "game_name": "Fortune Thursday",
+    "winning": [
+      39,
+      46,
+      13,
+      78,
+      85
+    ],
+    "machine": [
+      44,
+      6,
+      4,
+      73,
+      76
+    ]
+  },
+  {
+    "draw_date": "2026-10-02",
+    "game_name": "Friday Bonanza",
+    "winning": [
+      5,
+      59,
+      2,
+      16,
+      68
+    ],
+    "machine": [
+      70,
+      33,
+      66,
+      6,
+      9
+    ]
+  },
+  {
+    "draw_date": "2026-10-03",
+    "game_name": "National Weekly",
+    "winning": [
+      8,
+      67,
+      12,
+      11,
+      89
+    ],
+    "machine": [
+      74,
+      19,
+      79,
+      7,
+      85
+    ]
+  },
+  {
+    "draw_date": "2026-10-05",
+    "game_name": "Monday Special",
+    "winning": [
+      77,
+      18,
+      79,
+      52,
+      11
+    ],
+    "machine": [
+      81,
+      10,
+      90,
+      22,
+      64
+    ]
+  },
+  {
+    "draw_date": "2026-10-06",
+    "game_name": "Lucky Tuesday",
+    "winning": [
+      78,
+      20,
+      76,
+      3,
+      34
+    ],
+    "machine": [
+      73,
+      89,
+      60,
+      48,
+      69
+    ]
+  },
+  {
+    "draw_date": "2026-10-07",
+    "game_name": "Midweek",
+    "winning": [
+      51,
+      47,
+      55,
+      84,
+      34
+    ],
+    "machine": [
+      88,
+      1,
+      74,
+      63,
+      9
+    ]
+  },
+  {
+    "draw_date": "2026-10-08",
+    "game_name": "Fortune Thursday",
+    "winning": [
+      78,
+      35,
+      68,
+      64,
+      2
+    ],
+    "machine": [
+      69,
+      18,
+      43,
+      31,
+      15
+    ]
+  },
+  {
+    "draw_date": "2026-10-09",
+    "game_name": "Friday Bonanza",
+    "winning": [
+      80,
+      50,
+      22,
+      82,
+      24
+    ],
+    "machine": [
+      6,
+      55,
+      83,
+      40,
+      25
+    ]
+  },
+  {
+    "draw_date": "2026-10-10",
+    "game_name": "National Weekly",
+    "winning": [
+      68,
+      84,
+      83,
+      70,
+      58
+    ],
+    "machine": [
+      67,
+      34,
+      79,
+      26,
+      48
+    ]
+  },
+  {
+    "draw_date": "2026-10-12",
+    "game_name": "Monday Special",
+    "winning": [
+      71,
+      32,
+      66,
+      86,
+      41
+    ],
+    "machine": [
+      73,
+      53,
+      35,
+      88,
+      76
+    ]
+  },
+  {
+    "draw_date": "2026-10-13",
+    "game_name": "Lucky Tuesday",
+    "winning": [
+      23,
+      63,
+      60,
+      68,
+      9
+    ],
+    "machine": [
+      42,
+      89,
+      43,
+      49,
+      12
+    ]
+  },
+  {
+    "draw_date": "2026-10-14",
+    "game_name": "Midweek",
+    "winning": [
+      12,
+      71,
+      72,
+      80,
+      32
+    ],
+    "machine": [
+      17,
+      7,
+      56,
+      43,
+      25
+    ]
+  },
+  {
+    "draw_date": "2026-10-15",
+    "game_name": "Fortune Thursday",
+    "winning": [
+      5,
+      78,
+      12,
+      85,
+      79
+    ],
+    "machine": [
+      34,
+      42,
+      27,
+      63,
+      6
+    ]
+  },
+  {
+    "draw_date": "2026-10-16",
+    "game_name": "Friday Bonanza",
+    "winning": [
+      36,
+      49,
+      68,
+      46,
+      22
+    ],
+    "machine": [
+      78,
+      14,
+      23,
+      63,
+      80
+    ]
+  },
+  {
+    "draw_date": "2026-10-17",
+    "game_name": "National Weekly",
+    "winning": [
+      85,
+      61,
+      43,
+      29,
+      86
+    ],
+    "machine": [
+      71,
+      87,
+      31,
+      46,
+      8
+    ]
+  },
+  {
+    "draw_date": "2026-10-19",
+    "game_name": "Monday Special",
+    "winning": [
+      29,
+      40,
+      14,
+      83,
+      9
+    ],
+    "machine": [
+      62,
+      39,
+      25,
+      79,
+      90
+    ]
+  },
+  {
+    "draw_date": "2026-10-20",
+    "game_name": "Lucky Tuesday",
+    "winning": [
+      1,
+      18,
+      34,
+      28,
+      29
+    ],
+    "machine": [
+      13,
+      32,
+      73,
+      87,
+      17
+    ]
+  },
+  {
+    "draw_date": "2026-10-21",
+    "game_name": "Midweek",
+    "winning": [
+      63,
+      71,
+      50,
+      43,
+      60
+    ],
+    "machine": [
+      89,
+      4,
+      3,
+      12,
+      34
+    ]
+  },
+  {
+    "draw_date": "2026-10-22",
+    "game_name": "Fortune Thursday",
+    "winning": [
+      2,
+      75,
+      36,
+      22,
+      70
+    ],
+    "machine": [
+      41,
+      90,
+      73,
+      74,
+      39
+    ]
+  },
+  {
+    "draw_date": "2026-10-23",
+    "game_name": "Friday Bonanza",
+    "winning": [
+      10,
+      21,
+      4,
+      52,
+      53
+    ],
+    "machine": [
+      1,
+      42,
+      49,
+      13,
+      15
+    ]
+  },
+  {
+    "draw_date": "2026-10-24",
+    "game_name": "National Weekly",
+    "winning": [
+      48,
+      77,
+      5,
+      19,
+      15
+    ],
+    "machine": [
+      66,
+      36,
+      30,
+      61,
+      59
+    ]
+  },
+  {
+    "draw_date": "2026-10-26",
+    "game_name": "Monday Special",
+    "winning": [
+      27,
+      34,
+      71,
+      76,
+      38
+    ],
+    "machine": [
+      48,
+      40,
+      22,
+      84,
+      37
+    ]
+  },
+  {
+    "draw_date": "2026-10-27",
+    "game_name": "Lucky Tuesday",
+    "winning": [
+      71,
+      11,
+      15,
+      76,
+      1
+    ],
+    "machine": [
+      63,
+      49,
+      85,
+      60,
+      82
+    ]
+  },
+  {
+    "draw_date": "2026-10-28",
+    "game_name": "Midweek",
+    "winning": [
+      55,
+      9,
+      33,
+      80,
+      79
+    ],
+    "machine": [
+      41,
+      10,
+      57,
+      37,
+      58
+    ]
+  },
+  {
+    "draw_date": "2026-10-29",
+    "game_name": "Fortune Thursday",
+    "winning": [
+      20,
+      17,
+      73,
+      34,
+      49
+    ],
+    "machine": [
+      81,
+      8,
+      3,
+      83,
+      40
+    ]
+  },
+  {
+    "draw_date": "2026-10-30",
+    "game_name": "Friday Bonanza",
+    "winning": [
+      26,
+      64,
+      5,
+      66,
+      34
+    ],
+    "machine": [
+      4,
+      9,
+      56,
+      21,
+      44
+    ]
+  },
+  {
+    "draw_date": "2026-10-31",
+    "game_name": "National Weekly",
+    "winning": [
+      9,
+      44,
+      37,
+      48,
+      69
+    ],
+    "machine": [
+      55,
+      22,
+      73,
+      4,
+      78
+    ]
+  },
+  {
+    "draw_date": "2026-11-02",
+    "game_name": "Monday Special",
+    "winning": [
+      55,
+      53,
+      52,
+      76,
+      50
+    ],
+    "machine": [
+      67,
+      29,
+      39,
+      8,
+      66
+    ]
+  },
+  {
+    "draw_date": "2026-11-03",
+    "game_name": "Lucky Tuesday",
+    "winning": [
+      30,
+      66,
+      89,
+      32,
+      33
+    ],
+    "machine": [
+      17,
+      16,
+      87,
+      19,
+      74
+    ]
+  },
+  {
+    "draw_date": "2026-11-04",
+    "game_name": "Midweek",
+    "winning": [
+      37,
+      47,
+      62,
+      9,
+      13
+    ],
+    "machine": [
+      75,
+      77,
+      88,
+      79,
+      15
+    ]
+  },
+  {
+    "draw_date": "2026-11-05",
+    "game_name": "Fortune Thursday",
+    "winning": [
+      53,
+      32,
+      44,
+      20,
+      17
+    ],
+    "machine": [
+      11,
+      14,
+      59,
+      80,
+      89
+    ]
+  },
+  {
+    "draw_date": "2026-11-06",
+    "game_name": "Friday Bonanza",
+    "winning": [
+      42,
+      8,
+      1,
+      79,
+      60
+    ],
+    "machine": [
+      86,
+      52,
+      73,
+      34,
+      78
+    ]
+  },
+  {
+    "draw_date": "2026-11-07",
+    "game_name": "National Weekly",
+    "winning": [
+      79,
+      10,
+      80,
+      51,
+      78
+    ],
+    "machine": [
+      4,
+      47,
+      21,
+      32,
+      73
+    ]
+  },
+  {
+    "draw_date": "2026-11-09",
+    "game_name": "Monday Special",
+    "winning": [
+      17,
+      55,
+      70,
+      53,
+      61
+    ],
+    "machine": [
+      30,
+      44,
+      69,
+      43,
+      29
+    ]
+  },
+  {
+    "draw_date": "2026-11-10",
+    "game_name": "Lucky Tuesday",
+    "winning": [
+      21,
+      29,
+      42,
+      13,
+      22
+    ],
+    "machine": [
+      48,
+      57,
+      39,
+      10,
+      43
+    ]
+  },
+  {
+    "draw_date": "2026-11-11",
+    "game_name": "Midweek",
+    "winning": [
+      67,
+      4,
+      11,
+      68,
+      33
+    ],
+    "machine": [
+      31,
+      30,
+      24,
+      27,
+      20
+    ]
+  },
+  {
+    "draw_date": "2026-11-12",
+    "game_name": "Fortune Thursday",
+    "winning": [
+      29,
+      70,
+      78,
+      15,
+      90
+    ],
+    "machine": [
+      62,
+      68,
+      38,
+      67,
+      89
+    ]
+  },
+  {
+    "draw_date": "2026-11-13",
+    "game_name": "Friday Bonanza",
+    "winning": [
+      9,
+      1,
+      42,
+      34,
+      43
+    ],
+    "machine": [
+      90,
+      76,
+      37,
+      14,
+      89
+    ]
+  },
+  {
+    "draw_date": "2026-11-14",
+    "game_name": "National Weekly",
+    "winning": [
+      58,
+      8,
+      25,
+      55,
+      86
+    ],
+    "machine": [
+      15,
+      10,
+      19,
+      64,
+      16
+    ]
+  },
+  {
+    "draw_date": "2026-11-16",
+    "game_name": "Monday Special",
+    "winning": [
+      51,
+      78,
+      2,
+      30,
+      12
+    ],
+    "machine": [
+      9,
+      18,
+      49,
+      50,
+      16
+    ]
+  },
+  {
+    "draw_date": "2026-11-17",
+    "game_name": "Lucky Tuesday",
+    "winning": [
+      31,
+      42,
+      90,
+      83,
+      29
+    ],
+    "machine": [
+      87,
+      41,
+      67,
+      43,
+      8
+    ]
+  },
+  {
+    "draw_date": "2026-11-18",
+    "game_name": "Midweek",
+    "winning": [
+      64,
+      24,
+      85,
+      32,
+      8
+    ],
+    "machine": [
+      79,
+      27,
+      61,
+      47,
+      84
+    ]
+  },
+  {
+    "draw_date": "2026-11-19",
+    "game_name": "Fortune Thursday",
+    "winning": [
+      6,
+      29,
+      43,
+      25,
+      31
+    ],
+    "machine": [
+      39,
+      26,
+      9,
+      11,
+      55
+    ]
+  },
+  {
+    "draw_date": "2026-11-20",
+    "game_name": "Friday Bonanza",
+    "winning": [
+      19,
+      52,
+      59,
+      44,
+      29
+    ],
+    "machine": [
+      89,
+      39,
+      47,
+      82,
+      15
+    ]
+  },
+  {
+    "draw_date": "2026-11-21",
+    "game_name": "National Weekly",
+    "winning": [
+      2,
+      84,
+      24,
+      22,
+      71
+    ],
+    "machine": [
+      14,
+      11,
+      20,
+      52,
+      88
+    ]
+  }
+]

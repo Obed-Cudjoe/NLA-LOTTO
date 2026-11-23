@@ -152,6 +152,9 @@ https://<your-username>.github.io/NLA-LOTTO/
 
 ### 3. Run it locally (optional)
 
+Requires **Node.js 20 or newer** (CI uses 22 LTS). `npm install` pulls `jsdom`
+for the dashboard smoke test; it supports Node 18+.
+
 ```bash
 npm install
 npm run dev:static      # http://localhost:8788 — static mode, no Cloudflare

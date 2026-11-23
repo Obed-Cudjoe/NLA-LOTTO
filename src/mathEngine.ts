@@ -32,6 +32,7 @@ import {
   type BacktestRun,
   type CombinatorialAudit,
   type Deduction,
+  type LastDrawReview,
   type Draw,
   type DrawRow,
   type EngineConfig,
@@ -257,6 +258,16 @@ export function gameForDate(isoDate: string): string | null {
     ['', 'Monday Special', 'Lucky Tuesday', 'Midweek', 'Fortune Thursday', 'Friday Bonanza', 'National Weekly'][wd] ??
     null
   ) || null;
+}
+
+/** Next date on which `game` is drawn, strictly after `isoDate`. */
+export function nextDateForGame(game: string, afterIso: string): string {
+  let d = addDays(afterIso, 1);
+  for (let guard = 0; guard < 7; guard++) {
+    if (gameForDate(d) === game) return d;
+    d = addDays(d, 1);
+  }
+  return d;
 }
 
 /** The next scheduled NLA 5/90 event strictly after `isoDate`. */
@@ -866,7 +877,14 @@ function trioScore(members: NumberEvidence[], audit: CombinatorialAudit): number
  */
 export function deduce(
   history: readonly Draw[],
-  config: EngineConfig = DEFAULT_CONFIG
+  config: EngineConfig = DEFAULT_CONFIG,
+  /**
+   * Which game the picks are for. When set, the target is the next date that
+   * *that game* is drawn, so a Midweek analysis never advertises a Monday
+   * draw. Leave undefined for the pooled view (next scheduled event of any
+   * game).
+   */
+  targetGame?: string
 ): Deduction {
   const chron = normalizeHistory(history);
   const { evidence, window, weights, scoreEntropy } = scoreNumbers(chron, config);
@@ -946,7 +964,12 @@ export function deduce(
   const windowEnd = window[window.length - 1]?.draw_date ?? '—';
 
   return {
-    next: nextDrawAfter(windowEnd === '—' ? new Date().toISOString().slice(0, 10) : windowEnd),
+    next: (() => {
+      const anchor = windowEnd === '—' ? new Date().toISOString().slice(0, 10) : windowEnd;
+      if (!targetGame || targetGame === 'all') return nextDrawAfter(anchor);
+      const date = nextDateForGame(targetGame, anchor);
+      return { game: targetGame, date, label: `${targetGame} · ${formatDrawDate(date)}` };
+    })(),
     top: evidence.slice(0, 3),
     trio: primary,
     alternatives,
@@ -1143,5 +1166,78 @@ export function backtest(
       },
     },
     config,
+  };
+}
+
+/* ==========================================================================
+ * Review: what the engine said before the last draw that was actually played
+ * ========================================================================== */
+
+/** Exact P(X >= 1) that a k-pick line contains at least one of the five winners. */
+export function chanceAtLeastOneHit(picks: number): number {
+  const n = BALLS;
+  const wins = WINNING_COUNT;
+  let miss = 1;
+  for (let i = 0; i < picks; i++) miss *= (n - wins - i) / (n - i);
+  return 1 - miss;
+}
+
+/**
+ * Re-run the walk-forward step that covered the newest stored draw and compare
+ * it with the result. This is deliberately deterministic: the same history and
+ * settings always produce the same "what it said", so the review can be shown
+ * for draws that happened years ago, not just for predictions the browser
+ * happened to see.
+ */
+export function reviewLastDraw(
+  history: readonly Draw[],
+  config: EngineConfig = DEFAULT_CONFIG,
+  targetGame?: string
+): LastDrawReview | null {
+  const chron = normalizeHistory(history);
+  if (chron.length < 6) return null;
+
+  const actual = chron[chron.length - 1];
+  const training = chron.slice(0, -1);
+  const before = deduce(training, config, targetGame);
+  if (before.next.date !== actual.draw_date) return null; // schedule gap — nothing to compare
+
+  const picks = before.trio.numbers;
+  const byNumber = new Map(before.evidence.map((e) => [e.number, e]));
+  const ranked = actual.winning.map((number) => {
+    const e = byNumber.get(number);
+    return {
+      number,
+      rank: e?.rank ?? BALLS,
+      z: e?.score ?? 0,
+      hit: picks.includes(number),
+    };
+  });
+
+  const matched = picks.filter((n) => actual.winning.includes(n));
+  const matchedMachine = picks.filter((n) => !actual.winning.includes(n) && actual.machine.includes(n));
+  const hits = matched.length;
+  const expectedHits = picks.length * BASE_P;
+  const pAtLeastOne = chanceAtLeastOneHit(picks.length);
+
+  const verdict =
+    hits >= 3
+      ? 'All three landed. That is a 1-in-11,748 event — the tail of a random distribution, not a method. Take the money and expect the next 60 draws to look ordinary again.'
+      : hits === 2
+        ? 'Two of three landed, which happens in about 0.7% of draws. Unusual, pleasant, and still luck: nothing in the model caused the drum to release those balls.'
+        : hits === 1
+          ? 'One of three landed. That is the single most common non-zero outcome (about 15% of draws) and exactly what chance offers — the expected hits per draw is 0.17.'
+          : 'None landed, which is the most likely outcome: about 84% of draws hit nothing. The expected hits per draw is 0.17, so a blank is normal, not a failure of the model.';
+
+  return {
+    actual,
+    predicted: { numbers: picks, targetDate: before.next.date, weights: before.meta.weights },
+    matched,
+    matchedMachine,
+    hits,
+    expectedHits,
+    pAtLeastOne,
+    ranked,
+    verdict,
   };
 }

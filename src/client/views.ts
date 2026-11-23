@@ -18,6 +18,9 @@ import {
 import {
   badge,
   ball,
+  drawWhen,
+  stalenessNote,
+  targetHeading,
   balls,
   card,
   check,
@@ -32,6 +35,7 @@ import {
   zTone,
   zWidth,
 } from './format';
+import { guessRepo, workflowUrl } from './store';
 import type { AppState, View } from './types';
 
 const TABS: Array<{ id: View; label: string; icon: string }> = [
@@ -75,8 +79,9 @@ export function renderHeader(state: AppState): string {
       <div class="flex flex-wrap items-center gap-2">
         ${modeBadge}
         ${state.lastSync ? badge(`synced ${state.lastSync}`, 'muted') : ''}
-        <button data-action="refresh" class="btn btn-primary" type="button">
-          <span class="text-base leading-none">↻</span> Refresh Latest Results
+        <button data-action="refresh" class="btn btn-primary" type="button"
+          title="${state.mode === 'static' ? 'Static site: dispatches the GitHub Actions refresh (needs a token in the Data tab)' : 'Fetch the latest results from the source and store them in D1'}">
+          <span class="text-base leading-none">↻</span> ${state.mode === 'static' ? 'Refresh via GitHub' : 'Refresh Latest Results'}
         </button>
       </div>
     </div>
@@ -112,9 +117,12 @@ export function renderControls(state: AppState): string {
         <label class="field">
           <span>Game</span>
           <select id="game-select">
-            <option value="all"${state.game === 'all' ? ' selected' : ''}>All games</option>
+            <option value="all"${state.game === 'all' ? ' selected' : ''}>All games (pooled)</option>
             ${GAMES.map(
-              (g) => `<option value="${esc(g)}"${state.game === g ? ' selected' : ''}>${esc(g)}</option>`
+              (g) =>
+                `<option value="${esc(g)}"${state.game === g ? ' selected' : ''}>${esc(g)}${
+                  g === todayGameLabel() ? ' — today' : ''
+                }</option>`
             ).join('')}
           </select>
         </label>
@@ -473,6 +481,110 @@ function rankingTable(d: Deduction): string {
   `);
 }
 
+/** "What the engine said last time, and what actually came out." */
+/** Name of the game drawn today (UTC), for the "— today" hint in the filter. */
+function todayGameLabel(): string {
+  const wd = new Date().getUTCDay();
+  return ['', 'Monday Special', 'Lucky Tuesday', 'Midweek', 'Fortune Thursday', 'Friday Bonanza', 'National Weekly'][wd] ?? '';
+}
+
+function renderLastDrawReview(state: AppState): string {
+  const r = state.review;
+  if (!r) return '';
+  const actual = r.actual;
+  const pickTone = (n: number): string => (actual.winning.includes(n) ? 'text-emerald-300' : '');
+  const allWinning = [...actual.winning].sort((a, b) => a - b);
+
+  return card(`
+    <div class="flex flex-wrap items-start justify-between gap-2">
+      <div>
+        <h3 class="text-sm font-semibold text-slate-100">Last draw vs the engine</h3>
+        <p class="text-[11px] text-slate-400">
+          ${esc(actual.game_name)} · ${esc(formatDrawDate(actual.draw_date))} ·
+          the picks below were made from the ${r.predicted.numbers.length === 3 ? `${r.predicted.numbers.length}-number trio` : 'trio'} the engine gave *before* this draw
+        </p>
+      </div>
+      ${badge(
+        r.hits === 0 ? 'no hit' : `${r.hits} of 3 hit`,
+        r.hits === 0 ? 'muted' : r.hits >= 2 ? 'ok' : 'info'
+      )}
+    </div>
+
+    <div class="mt-3 grid gap-3 sm:grid-cols-2">
+      <div>
+        <p class="text-[10px] uppercase tracking-wide text-slate-500">Drawn</p>
+        <div class="mt-1 flex flex-wrap gap-1">${balls(allWinning)}</div>
+        <p class="mt-1 text-[10px] text-slate-500">Machine: ${actual.machine.join(' · ')}</p>
+      </div>
+      <div>
+        <p class="text-[10px] uppercase tracking-wide text-slate-500">Engine said</p>
+        <div class="mt-1 flex flex-wrap items-center gap-1">
+          ${r.predicted.numbers
+            .map(
+              (n) =>
+                `<span class="inline-flex h-7 min-w-7 items-center justify-center rounded-full border px-1.5 text-xs font-semibold ${
+                  pickTone(n) ||
+                  'border-slate-700 bg-slate-800/80 text-slate-300'
+                }">${n}</span>`
+            )
+            .join('')}
+        </div>
+        <p class="mt-1 text-[10px] text-slate-500">
+          ${r.hits} hit · ${r.matchedMachine.length ? `${r.matchedMachine.length} in the machine set` : 'none in the machine set'} ·
+          expected ${num(r.expectedHits)} per draw
+        </p>
+      </div>
+    </div>
+
+    <p class="mt-3 text-[11px] leading-relaxed text-slate-300">${esc(r.verdict)}</p>
+
+    <details class="mt-3 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2">
+      <summary class="cursor-pointer text-[11px] font-medium text-slate-300">
+        Why these five numbers, and how surprising was the draw?
+      </summary>
+      <p class="mt-2 text-[11px] leading-relaxed text-slate-400">
+        Rank 1 means the model rated that number most likely; a rank near 90 means it rated it
+        cold. Probability of at least one hit with three picks is ${pct(r.pAtLeastOne)} per draw,
+        so a blank line is the normal case — the drum does not consult the ranking.
+      </p>
+      <div class="mt-2 overflow-x-auto">
+        <table class="w-full text-left text-[11px]">
+          <thead class="text-[10px] uppercase tracking-wide text-slate-500">
+            <tr><th class="py-1 pr-3">Number</th><th class="py-1 pr-3">Pre-draw rank</th><th class="py-1 pr-3">Blended z</th><th class="py-1">Verdict</th></tr>
+          </thead>
+          <tbody>
+            ${r.ranked
+              .map(
+                (x) => `<tr class="border-t border-slate-800/70">
+                  <td class="py-1 pr-3 font-semibold text-slate-100">${x.number}</td>
+                  <td class="py-1 pr-3 text-slate-300">${x.rank} / 90</td>
+                  <td class="py-1 pr-3 ${zTone(x.z)}">${signed(x.z)}</td>
+                  <td class="py-1 text-slate-400">${
+                    x.hit
+                      ? 'was in the engine\'s trio'
+                      : x.rank <= 15
+                        ? 'engine rated it highly, but it was not in the trio'
+                        : x.rank >= 70
+                          ? 'engine rated it cold'
+                          : 'mid-table — no signal either way'
+                  }</td>
+                </tr>`
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+      <p class="mt-2 text-[10px] leading-snug text-slate-500">
+        Computed with your current weights (${Math.round(r.predicted.weights.bayes * 100)}/${Math.round(
+          r.predicted.weights.poisson * 100
+        )}/${Math.round(r.predicted.weights.markov * 100)}) and lookback, so if you have changed
+        the sliders since, this is what the engine <em>would</em> have said — not necessarily what
+        your screen showed that evening.
+      </p>
+    </details>
+  `);
+}
+
 export function renderDeduction(state: AppState): string {
   const d = state.deduction;
   if (!d) {
@@ -488,16 +600,33 @@ export function renderDeduction(state: AppState): string {
   }
 
   const label = state.game === 'all' ? 'All six games pooled' : state.game;
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const when = drawWhen(d.next.date, todayIso);
+  const latest = state.draws[state.draws.length - 1];
+  const stale = stalenessNote(d.next, todayIso);
+  const drawnToday =
+    latest && latest.draw_date === todayIso
+      ? `${latest.game_name} already drawn today (${latest.winning.join(' · ')}), so these are for ${when === 'tonight' ? 'the next draw' : when}.`
+      : '';
 
   return `
   <div class="mx-auto max-w-7xl space-y-4 px-4 py-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <div>
-        <h2 class="text-lg font-semibold text-slate-50">Today's three deduced candidates</h2>
+        <h2 class="text-lg font-semibold text-slate-50">${esc(targetHeading(d.next, todayIso))}</h2>
         <p class="text-xs text-slate-400">
-          ${esc(label)} · ${d.meta.drawsUsed}-draw lookback · target
-          <span class="text-amber-300">${esc(d.next.label)}</span>
+          ${esc(label)} · ${d.meta.drawsUsed}-draw lookback · drawing
+          <span class="text-amber-300">${esc(formatDrawDate(d.next.date))}</span> (${esc(when)})
         </p>
+        ${drawnToday
+          ? `<p class="mt-1 text-[11px] text-slate-500">${esc(drawnToday)}</p>`
+          : ''}
+        ${stale ? `<p class="mt-1 text-[11px] text-amber-400/80">${esc(stale)}</p>` : ''}
+        ${state.game !== 'all' && d.meta.drawsUsed < 25
+          ? `<p class="mt-1 text-[11px] text-slate-500">Only ${d.meta.drawsUsed} ${esc(
+              state.game
+            )} draws in the window — per-game evidence is thin, so read the scores as a small-sample opinion. Pooling all six games would use ${state.draws.length} draws.</p>`
+          : ''}
       </div>
       <div class="flex flex-wrap gap-1.5">
         ${badge(`Bayes ${Math.round(d.meta.weights.bayes * 100)}%`, 'ok')}
@@ -505,6 +634,8 @@ export function renderDeduction(state: AppState): string {
         ${badge(`Markov ${Math.round(d.meta.weights.markov * 100)}%`, 'muted')}
       </div>
     </div>
+
+    ${renderLastDrawReview(state)}
 
     <div class="grid gap-4 lg:grid-cols-3">
       <div class="grid gap-3 sm:grid-cols-3 lg:col-span-2">
@@ -742,9 +873,9 @@ export function renderBacktest(state: AppState): string {
  * ========================================================================== */
 
 export function renderLedger(state: AppState): string {
-  const games = ['all', ...GAMES];
+  // The ledger is the audit trail, not an analysis view: it always lists every
+  // game, whatever the deduction filter is set to. Search narrows it instead.
   const filtered = state.draws
-    .filter((d) => (state.game === 'all' ? true : d.game_name === state.game))
     .filter((d) => {
       if (!state.search) return true;
       const q = state.search.toLowerCase();
@@ -843,7 +974,7 @@ export function renderLedger(state: AppState): string {
 
     ${card(`
       <div class="flex flex-wrap items-center justify-between gap-2">
-        <h2 class="text-sm font-semibold text-slate-100">Historical ledger <span class="text-slate-500">(${filtered.length})</span></h2>
+        <h2 class="text-sm font-semibold text-slate-100">Historical ledger <span class="text-slate-500">(${filtered.length} draws, all games)</span></h2>
         <input id="search" type="search" value="${esc(state.search)}" placeholder="Search date, game or number…"
           class="w-full rounded-lg border border-white/10 bg-black/30 px-2.5 py-1.5 text-xs text-slate-200 outline-none focus:border-amber-400/50 sm:w-64" />
       </div>
@@ -943,7 +1074,18 @@ export function renderSettings(state: AppState): string {
         <button type="button" data-action="trigger-workflow" class="btn btn-ghost mt-2 w-full" ${staticMode ? '' : 'disabled'}>
           Trigger refresh workflow on GitHub
         </button>
+        <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px]">
+          <a class="text-sky-300 underline decoration-dotted hover:text-sky-200" target="_blank" rel="noreferrer"
+             href="${esc(workflowUrl(guessRepo(state.settings.ghRepo)))}">Open the refresh workflow ↗</a>
+          <a class="text-sky-300 underline decoration-dotted hover:text-sky-200" target="_blank" rel="noreferrer"
+             href="https://github.com/settings/personal-access-tokens/new">Create a fine-grained token ↗</a>
+        </div>
         <p class="mt-2 text-[10px] leading-snug text-slate-500">
+          A browser cannot read results sites directly — they send no CORS headers — so on a
+          static site "refresh" means "ask GitHub to run the workflow". That is also why the
+          daily 21:00 GMT cron exists: normally you never press this button at all.
+        </p>
+        <p class="mt-1 text-[10px] leading-snug text-slate-500">
           Never paste a classic token with full repo scope. Fine-grained, single-repo,
           contents+actions write, short expiry.
         </p>

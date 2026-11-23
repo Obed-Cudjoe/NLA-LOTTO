@@ -74,7 +74,7 @@ describe('dashboard (static mode)', () => {
 
     // Wait for the real boot sequence: data loaded → deduction rendered.
     await waitFor(() => Boolean(state()?.deduction), 'engine to produce a deduction');
-    await waitFor(() => appText().includes("Today's three deduced candidates"), 'deduction tab to render');
+    await waitFor(() => /(Tonight's|Next) draw — /.test(appText()), 'deduction tab to render');
   }, 60_000);
 
   it('renders the deduction tab with three picks', () => {
@@ -82,15 +82,46 @@ describe('dashboard (static mode)', () => {
     const text = appText();
     expect(text).toContain('Ghana NLA 5/90');
     expect(app.querySelectorAll('.pick-ball').length).toBe(3);
+    // The heading names the game the picks are actually for — never "today's".
+    expect(text).toMatch(/(Tonight's|Next) draw — /);
+    expect(text).not.toContain("Today's three");
+    expect(text).toMatch(/drawing/);
     expect(text).toContain('Combinatorial audit');
     expect(text).toContain('Plain-English justifications');
     expect(app.querySelectorAll('details').length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('shows what the engine said before the last draw', async () => {
+    await click('[data-action="tab"][data-tab="deduce"]');
+    await waitFor(() => appText().includes('Last draw vs the engine'), 'review card');
+    expect(state().review).toBeTruthy();
+    expect(appText()).toContain('Engine said');
+    expect(appText()).toMatch(/expected 0\.17 per draw/);
+    expect(appText()).toContain('Pre-draw rank');
+    // Honest wording: a blank line is the normal outcome, not a failure.
+    expect(appText()).toMatch(/most likely outcome/i);
+  });
+
+  it('defaults to the game drawn today', () => {
+    const wd = new Date().getUTCDay();
+    const todayGame =
+      ['', 'Monday Special', 'Lucky Tuesday', 'Midweek', 'Fortune Thursday', 'Friday Bonanza', 'National Weekly'][wd] || 'all';
+    expect(state().game).toBe(todayGame);
+    if (todayGame !== 'all') {
+      // The target is that game's own next draw, not whichever game comes next.
+      expect(state().deduction.next.game).toBe(todayGame);
+      expect(appText()).toContain(todayGame);
+      expect(appText()).toContain('— today');
+    }
   });
 
   it('exposes the live state for debugging', () => {
     const s = state();
     expect(s.mode).toBe('static');
     expect(s.draws.length).toBeGreaterThanOrEqual(60);
+    // No draw may be dated in the future, whatever the JSON says.
+    const today = new Date().toISOString().slice(0, 10);
+    expect(s.draws.every((d: { draw_date: string }) => d.draw_date <= today)).toBe(true);
     expect(s.deduction.top).toHaveLength(3);
     expect(s.deduction.trio.numbers).toHaveLength(3);
   });
@@ -107,6 +138,10 @@ describe('dashboard (static mode)', () => {
 
   it('runs the walk-forward backtest and shows the edge audit', async () => {
     // Keep the simulation small: this test asserts wiring, not statistics.
+    // Pool all six games — a single game only has ~10 draws, far too few for
+    // this assertion to mean anything.
+    state().game = 'all';
+    (window as unknown as { NLA: { recompute: () => void } }).NLA.recompute();
     state().backtestOpts = { minTrain: 25, simulations: 20 };
     await click('[data-action="tab"][data-tab="backtest"]');
     await waitFor(() => Boolean(state()?.backtest), 'backtest to finish', 40_000);
@@ -123,6 +158,81 @@ describe('dashboard (static mode)', () => {
     await click('[data-action="tab"][data-tab="settings"]');
     await waitFor(() => appText().includes('GitHub-only sync'), 'settings tab to render');
     expect(appText()).toContain('How this app is honest with you');
+  });
+
+  it('labels the refresh control honestly on a static host', async () => {
+    await click('[data-action="tab"][data-tab="deduce"]');
+    await waitFor(() => appText().includes('Refresh via GitHub'), 'static refresh label');
+    expect(appText()).not.toContain('Refresh Latest Results');
+  });
+
+  it('sends a static refresh to GitHub instead of a doomed cross-origin fetch', async () => {
+    const calls: string[] = [];
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push(typeof input === 'string' ? input : String((input as Request).url ?? input));
+      return original(input as RequestInfo, init);
+    }) as typeof fetch;
+    try {
+      await click('[data-action="refresh"]');
+      await waitFor(() => appText().includes('runs on GitHub'), 'guidance toast');
+      // It never tries to read the results site directly (that only produces a
+      // console CORS error), and it never calls the GitHub API without a token.
+      expect(calls.some((u) => u.includes('24lottos'))).toBe(false);
+      expect(calls.some((u) => u.includes('api.github.com'))).toBe(false);
+      // It lands on the tab that holds the controls which actually work.
+      expect(state().view).toBe('settings');
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it('links to the workflow page and the token form', async () => {
+    const repo = state().settings.ghRepo;
+    state().settings.ghRepo = 'Obed-Cudjoe/NLA-LOTTO';
+    try {
+      await click('[data-action="tab"][data-tab="settings"]');
+      await waitFor(
+        () => Boolean(document.querySelector('a[href*="actions/workflows/refresh-draws.yml"]')),
+        'workflow deep link'
+      );
+      const link = document.querySelector<HTMLAnchorElement>('a[href*="actions/workflows/refresh-draws.yml"]');
+      expect(link?.href).toBe(
+        'https://github.com/Obed-Cudjoe/NLA-LOTTO/actions/workflows/refresh-draws.yml'
+      );
+      expect(link?.getAttribute('target')).toBe('_blank');
+      expect(document.querySelector('a[href*="personal-access-tokens/new"]')).not.toBeNull();
+    } finally {
+      state().settings.ghRepo = repo;
+    }
+  });
+
+  it('dispatches the workflow when a token is configured', async () => {
+    const calls: string[] = [];
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : String((input as Request).url ?? input);
+      calls.push(url);
+      if (url.includes('api.github.com')) return new Response('{}', { status: 500 });
+      return original(input as RequestInfo, init);
+    }) as typeof fetch;
+    const repo = state().settings.ghRepo;
+    const token = state().settings.ghToken;
+    state().settings.ghRepo = 'Obed-Cudjoe/NLA-LOTTO';
+    state().settings.ghToken = 'github_pat_test';
+    try {
+      await click('[data-action="refresh"]');
+      await waitFor(() => calls.some((u) => u.includes('/dispatches')), 'workflow dispatch call');
+      expect(calls.some((u) => u.endsWith('/actions/workflows/refresh-draws.yml/dispatches'))).toBe(true);
+      await waitFor(
+        () => /GitHub API responded 500|Could not dispatch/.test(appText()),
+        'dispatch failure surfaced'
+      );
+    } finally {
+      globalThis.fetch = original;
+      state().settings.ghRepo = repo;
+      state().settings.ghToken = token;
+    }
   });
 
   it('never leaks undefined, NaN or [object Object] into the DOM', async () => {

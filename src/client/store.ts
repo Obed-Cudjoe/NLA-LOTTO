@@ -208,6 +208,26 @@ export async function commitDrawsToGitHub(
   };
 }
 
+/**
+ * Best guess at this site's repository: the saved setting, else the GitHub
+ * Pages URL itself (`owner.github.io/<repo>`, or `owner.github.io` for a root
+ * site). Used to prefill the Data tab and to build the Actions deep link.
+ */
+export function guessRepo(saved: string): string {
+  const trimmed = saved.trim();
+  if (trimmed) return trimmed;
+  const host = location.hostname;
+  if (!host.endsWith('.github.io')) return '';
+  const owner = host.slice(0, -'.github.io'.length);
+  const [, repo] = location.pathname.split('/').filter(Boolean);
+  return repo ? `${owner}/${repo}` : `${owner}/${owner}.github.io`;
+}
+
+/** Deep link to a workflow's page (the "Run workflow" button lives there). */
+export function workflowUrl(repo: string, workflow = 'refresh-draws.yml'): string {
+  return repo ? `https://github.com/${repo}/actions/workflows/${workflow}` : 'https://github.com';
+}
+
 /** Fire the refresh-results workflow (needs actions:write on the token). */
 export async function triggerRefreshWorkflow(
   repo: string,

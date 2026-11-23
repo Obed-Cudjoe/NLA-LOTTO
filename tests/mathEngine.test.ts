@@ -11,13 +11,17 @@ import {
   backtest,
   bayesPosterior,
   binomialTailAtLeast,
+  chanceAtLeastOneHit,
   choose,
   deduce,
   incompleteBeta,
   normalizeHistory,
+  nextDateForGame,
   normalizeWeights,
   parseCsv,
   poissonGap,
+  reviewLastDraw,
+  filterByGame,
   scoreNumbers,
   transitionProbability,
   trioEntropy,
@@ -336,5 +340,75 @@ describe('history helpers', () => {
     const clean = normalizeHistory(messy);
     expect(clean).toHaveLength(3);
     expect(clean.map((d) => d.draw_date)).toEqual([...clean.map((d) => d.draw_date)].sort());
+  });
+});
+
+describe('reviewLastDraw — the daily result check', () => {
+  it('re-runs the walk-forward step and counts real hits', () => {
+    const review = reviewLastDraw(history, DEFAULT_CONFIG);
+    expect(review).not.toBeNull();
+    const r = review!;
+    expect(r.actual.draw_date).toBe(history[history.length - 1].draw_date);
+    expect(r.predicted.numbers).toHaveLength(3);
+    expect(r.hits).toBe(r.matched.length);
+    expect(r.matched.every((n) => r.actual.winning.includes(n))).toBe(true);
+    expect(r.matchedMachine.every((n) => !r.actual.winning.includes(n))).toBe(true);
+    expect(r.ranked).toHaveLength(5);
+    expect(r.ranked.map((x) => x.number).sort((a, b) => a - b)).toEqual(
+      [...r.actual.winning].sort((a, b) => a - b)
+    );
+    expect(r.verdict.length).toBeGreaterThan(20);
+  });
+
+  it('reports chance-level expectations, not promises', () => {
+    const r = reviewLastDraw(history, DEFAULT_CONFIG)!;
+    expect(r.expectedHits).toBeCloseTo(3 * (5 / 90), 10);
+    // 1 - C(85,3)/C(90,3)
+    expect(r.pAtLeastOne).toBeCloseTo(0.1593, 3);
+    expect(chanceAtLeastOneHit(0)).toBeCloseTo(0, 10);
+    expect(chanceAtLeastOneHit(1)).toBeCloseTo(5 / 90, 10);
+  });
+
+  it('is deterministic — same history, same verdict', () => {
+    const a = reviewLastDraw(history, DEFAULT_CONFIG)!;
+    const b = reviewLastDraw(history, DEFAULT_CONFIG)!;
+    expect(a.predicted.numbers).toEqual(b.predicted.numbers);
+    expect(a.verdict).toBe(b.verdict);
+  });
+
+  it('returns null rather than inventing a comparison', () => {
+    expect(reviewLastDraw([], DEFAULT_CONFIG)).toBeNull();
+    expect(reviewLastDraw(history.slice(0, 5), DEFAULT_CONFIG)).toBeNull();
+  });
+});
+
+describe('per-game targets — Monday picks on Monday', () => {
+  it('finds the next date the chosen game is drawn', () => {
+    expect(nextDateForGame('Monday Special', '2026-11-16')).toBe('2026-11-23');
+    expect(nextDateForGame('Midweek', '2026-11-21')).toBe('2026-11-25');
+    expect(nextDateForGame('National Weekly', '2026-11-21')).toBe('2026-11-28');
+    expect(nextDateForGame('Lucky Tuesday', '2026-11-21')).toBe('2026-11-24');
+  });
+
+  it('deduces for that game only, never advertising another game\'s draw', () => {
+    const monday = filterByGame(history, 'Monday Special');
+    const d = deduce(monday, DEFAULT_CONFIG, 'Monday Special');
+    expect(d.next.game).toBe('Monday Special');
+    expect(new Date(`${d.next.date}T00:00:00Z`).getUTCDay()).toBe(1);
+    expect(d.meta.drawsUsed).toBe(monday.length);
+    expect(d.meta.drawsUsed).toBeLessThan(history.length);
+  });
+
+  it('keeps the pooled view chronological when no game is given', () => {
+    const d = deduce(history, DEFAULT_CONFIG);
+    expect(d.next.date > history[history.length - 1].draw_date).toBe(true);
+    expect(d.meta.drawsUsed).toBe(Math.min(DEFAULT_CONFIG.lookback, history.length));
+  });
+
+  it('reviews the last draw of the selected game', () => {
+    const midweek = filterByGame(history, 'Midweek');
+    const r = reviewLastDraw(midweek, DEFAULT_CONFIG, 'Midweek')!;
+    expect(r.actual.game_name).toBe('Midweek');
+    expect(r.predicted.targetDate).toBe(r.actual.draw_date);
   });
 });

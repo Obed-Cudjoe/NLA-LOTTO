@@ -1,11 +1,26 @@
 import { describe, expect, it } from 'vitest';
 import {
-  extractDate,
+  extractDate as realExtractDate,
   extractNumbers,
   findGame,
-  parsePayload,
-  validateCandidates,
+  parsePayload as realParsePayload,
+  validateCandidates as realValidateCandidates,
 } from '../src/scraper';
+
+/**
+ * A fixed "now" for every fixture. The scraper refuses draws that cannot have
+ * happened yet, so the fixtures must be unambiguously in the past — otherwise
+ * these tests would start failing (or passing) depending on the wall clock.
+ */
+const NOW = '2026-12-05T21:30:00Z';
+
+const validateCandidates: typeof realValidateCandidates = (candidates, opts = {}) =>
+  realValidateCandidates(candidates, { now: NOW, ...opts });
+
+const parsePayload: typeof realParsePayload = (body, contentType, opts = {}) =>
+  realParsePayload(body, contentType, { now: NOW, ...opts });
+
+const extractDate = realExtractDate;
 
 const NLA_STYLE_HTML = `
 <html><body>
@@ -121,7 +136,7 @@ describe('parsePayload — JSON', () => {
           mac1: 12, mac2: 4, mac3: 66, mac4: 7, mac5: 19,
         },
         {
-          date: '2026-11-22',
+          date: '2026-11-24',
           game: 'National Weekly',
           winning: '3,14,15,92,97'.replace('92', '92').replace('97', '97'), // 92/97 out of range on purpose
           machine: '1,2,3,4,5',
@@ -131,12 +146,12 @@ describe('parsePayload — JSON', () => {
     const result = parsePayload(payload, 'application/json');
     expect(result.draws.some((d) => d.draw_date === '2026-11-21')).toBe(true);
     // The deliberately invalid row must be rejected, not silently stored.
-    expect(result.draws.some((d) => d.draw_date === '2026-11-22')).toBe(false);
+    expect(result.draws.some((d) => d.draw_date === '2026-11-24')).toBe(false);
   });
 
   it('accepts a single ten-number array as one draw', () => {
     const result = validateCandidates(
-      [{ draw_date: '2026-11-01', game_name: 'Midweek', winning: [1, 2, 3, 4, 5], machine: [6, 7, 8, 9, 10] }],
+      [{ draw_date: '2026-11-02', game_name: 'Midweek', winning: [1, 2, 3, 4, 5], machine: [6, 7, 8, 9, 10] }],
       {}
     );
     expect(result.draws).toHaveLength(1);
@@ -144,10 +159,99 @@ describe('parsePayload — JSON', () => {
   });
 });
 
+describe('weekday schedule guard', () => {
+  const monday = { winning: [1, 2, 3, 4, 5], machine: [6, 7, 8, 9, 10] };
+
+  it('skips Sundays, where no 5/90 evening game is drawn', () => {
+    const result = validateCandidates(
+      [{ draw_date: '2026-11-22', game_name: 'Monday Special', ...monday }],
+      {}
+    );
+    expect(result.draws).toHaveLength(0);
+    expect(result.warnings.join(' ')).toMatch(/Sunday/i);
+  });
+
+  it('relabels a mislabelled weekday row from the calendar', () => {
+    const result = validateCandidates(
+      [{ draw_date: '2026-11-20', game_name: 'Monday Special', ...monday }],
+      {}
+    );
+    expect(result.draws).toHaveLength(1);
+    expect(result.draws[0].game_name).toBe('Friday Bonanza');
+    expect(result.warnings.join(' ')).toMatch(/weekday schedule/i);
+  });
+
+  it('keeps the source label when respectSchedule is disabled', () => {
+    const result = validateCandidates(
+      [{ draw_date: '2026-11-20', game_name: 'Monday Special', ...monday }],
+      { respectSchedule: false }
+    );
+    expect(result.draws[0].game_name).toBe('Monday Special');
+    expect(result.warnings).toHaveLength(0);
+  });
+
+  it('rejects a draw dated tomorrow — scheduled, not drawn', () => {
+    const result = validateCandidates(
+      [{ draw_date: '2026-12-06', game_name: 'National Weekly', ...monday }],
+      {}
+    );
+    expect(result.draws).toHaveLength(0);
+    expect(result.warnings.join(' ')).toMatch(/in the future/i);
+  });
+
+  it('rejects a draw dated today before the evening window closes', () => {
+    const result = validateCandidates(
+      [{ draw_date: '2026-12-05', game_name: 'National Weekly', ...monday }],
+      { now: '2026-12-05T11:29:00Z' }
+    );
+    expect(result.draws).toHaveLength(0);
+    expect(result.warnings.join(' ')).toMatch(/has not closed yet/i);
+  });
+
+  it('accepts today\'s draw once the window has closed', () => {
+    const result = validateCandidates(
+      [{ draw_date: '2026-12-05', game_name: 'National Weekly', ...monday }],
+      { now: '2026-12-05T21:05:00Z' }
+    );
+    expect(result.draws).toHaveLength(1);
+    expect(result.draws[0].draw_date).toBe('2026-12-05');
+  });
+
+  it('ignores NEXT DRAW labels when reading a block date', () => {
+    // Verbatim shape of the aggregator page that produced the phantom draw.
+    const block = `Monday Special 01 34 45 54 82 NEXT DRAW Mon, Nov 23, 2026`;
+    expect(extractDate(block, '2026-11-23')).toBeNull();
+    // ...while a real result date in the same block still reads correctly.
+    expect(extractDate(`Sunday, Nov 22, 2026 ${block}`, '2026-11-23')).toBe('2026-11-22');
+  });
+
+  it('never stores the phantom row a source dated today before the draw', () => {
+    // The exact row that appeared in data/draws.json at 10:45 GMT on Monday
+    // 23 Nov: a "today" date with numbers that had not been drawn yet.
+    const html = `<h3>Monday Special</h3>
+      <div><span>2026-11-23</span><div>55 8 4 22 3</div><div>Machine: 21 1 5 20 19</div></div>`;
+    const result = parsePayload(html, 'text/html', { now: '2026-11-23T10:45:00Z' });
+    expect(result.draws).toHaveLength(0);
+    expect(result.warnings.join(' ')).toMatch(/has not closed yet/i);
+    // ...and the same row is accepted once the evening draw has happened.
+    const later = parsePayload(html, 'text/html', { now: '2026-11-23T21:05:00Z' });
+    expect(later.draws).toHaveLength(1);
+    expect(later.draws[0].game_name).toBe('Monday Special');
+  });
+
+  it('applies the schedule through parsePayload too', () => {
+    const html = `<h3>Monday Special</h3>
+      <div><span>2026-11-19</span><div>4 19 33 58 71</div><div>Machine: 8 26 45 62 88</div></div>`;
+    const result = parsePayload(html, 'text/html');
+    expect(result.draws).toHaveLength(1);
+    expect(result.draws[0].game_name).toBe('Fortune Thursday');
+  });
+});
+
 describe('validation guardrails', () => {
   it('skips rows without machine numbers instead of storing half a draw', () => {
     const result = validateCandidates(
-      [{ draw_date: '2026-11-01', game_name: 'Midweek', winning: [1, 2, 3, 4, 5], machine: [] }],
+      [{ draw_date: '2026-11-02', game_name: 'Midweek', winning: [1, 2, 3, 4, 5], machine: [] }],
       {}
     );
     expect(result.draws).toHaveLength(0);
@@ -156,7 +260,7 @@ describe('validation guardrails', () => {
 
   it('rejects overlaps between winning and machine numbers', () => {
     const result = validateCandidates(
-      [{ draw_date: '2026-11-01', game_name: 'Midweek', winning: [1, 2, 3, 4, 5], machine: [5, 6, 7, 8, 9] }],
+      [{ draw_date: '2026-11-02', game_name: 'Midweek', winning: [1, 2, 3, 4, 5], machine: [5, 6, 7, 8, 9] }],
       {}
     );
     expect(result.draws).toHaveLength(0);
@@ -164,9 +268,11 @@ describe('validation guardrails', () => {
   });
 
   it('collapses identical rows found by two strategies without warning', () => {
+    // Monday Special on a Monday, so the schedule guard has nothing to say —
+    // this test is only about duplicate suppression.
     const candidate = {
-      draw_date: '2026-11-01',
-      game_name: 'Midweek',
+      draw_date: '2026-11-02',
+      game_name: 'Monday Special',
       winning: [1, 2, 3, 4, 5],
       machine: [6, 7, 8, 9, 10],
     };
@@ -178,8 +284,8 @@ describe('validation guardrails', () => {
   it('warns when two rows disagree for the same date', () => {
     const result = validateCandidates(
       [
-        { draw_date: '2026-11-01', game_name: 'Midweek', winning: [1, 2, 3, 4, 5], machine: [6, 7, 8, 9, 10] },
-        { draw_date: '2026-11-01', game_name: 'Midweek', winning: [11, 12, 13, 14, 15], machine: [16, 17, 18, 19, 20] },
+        { draw_date: '2026-11-02', game_name: 'Midweek', winning: [1, 2, 3, 4, 5], machine: [6, 7, 8, 9, 10] },
+        { draw_date: '2026-11-02', game_name: 'Midweek', winning: [11, 12, 13, 14, 15], machine: [16, 17, 18, 19, 20] },
       ],
       {}
     );

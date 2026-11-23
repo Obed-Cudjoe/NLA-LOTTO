@@ -64,7 +64,13 @@ app says that in the UI too.
 - Full ranking table for the top 24 of 90 numbers.
 
 **Controls**
-- Game filter (all six games pooled, or one game).
+- **Game filter — defaults to tonight's game.** Monday's picks are computed from
+  Monday Special's own history and target the next Monday draw; Midweek's from
+  Midweek's history and target Wednesday. Each game keeps its own weekday
+  schedule, so a filtered view never advertises another game's date. Switch to
+  *All games (pooled)* for a six-game blend with more data — the per-game view
+  is the right model, the pooled view is the better-statistics one, and the
+  header tells you how many draws each is using.
 - Lookback window slider (10–120 draws).
 - Bayesian / Poisson / Markov weight sliders (auto-normalised, so 45% always
   means 45% of the signal).
@@ -78,6 +84,19 @@ app says that in the UI too.
   polls `data/draws.json` until the new commit lands; without a token it takes
   you straight to the Data tab, which has the working controls. In normal
   operation you never press it: the 21:00 GMT cron already did the work.
+
+**Which day the numbers "belong" to**
+
+Every game has one draw per week, so the honest rule is: generate Monday's
+numbers on Monday, from Monday's history, for Monday's draw. That is what the
+default filter does. Two consequences worth knowing:
+
+- The target is the next date *that game* is drawn. Filter Midweek on a Monday
+  and the header says **Wed 25 Nov**, not Monday. After Monday's result is
+  stored, Monday Special's target becomes the following Monday.
+- Ten draws per game is a thin window. The engine still produces a trio, but the
+  header says so, and the Backtester will show you, on your own data, that the
+  per-game picks have no measurable edge over chance either.
 
 **Last draw vs the engine** (top of the Deduction tab)
 - The newest stored result next to the trio the engine produced *before* that

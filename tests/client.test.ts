@@ -102,6 +102,19 @@ describe('dashboard (static mode)', () => {
     expect(appText()).toMatch(/most likely outcome/i);
   });
 
+  it('defaults to the game drawn today', () => {
+    const wd = new Date().getUTCDay();
+    const todayGame =
+      ['', 'Monday Special', 'Lucky Tuesday', 'Midweek', 'Fortune Thursday', 'Friday Bonanza', 'National Weekly'][wd] || 'all';
+    expect(state().game).toBe(todayGame);
+    if (todayGame !== 'all') {
+      // The target is that game's own next draw, not whichever game comes next.
+      expect(state().deduction.next.game).toBe(todayGame);
+      expect(appText()).toContain(todayGame);
+      expect(appText()).toContain('— today');
+    }
+  });
+
   it('exposes the live state for debugging', () => {
     const s = state();
     expect(s.mode).toBe('static');
@@ -125,6 +138,10 @@ describe('dashboard (static mode)', () => {
 
   it('runs the walk-forward backtest and shows the edge audit', async () => {
     // Keep the simulation small: this test asserts wiring, not statistics.
+    // Pool all six games — a single game only has ~10 draws, far too few for
+    // this assertion to mean anything.
+    state().game = 'all';
+    (window as unknown as { NLA: { recompute: () => void } }).NLA.recompute();
     state().backtestOpts = { minTrain: 25, simulations: 20 };
     await click('[data-action="tab"][data-tab="backtest"]');
     await waitFor(() => Boolean(state()?.backtest), 'backtest to finish', 40_000);

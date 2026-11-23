@@ -16,10 +16,12 @@ import {
   deduce,
   incompleteBeta,
   normalizeHistory,
+  nextDateForGame,
   normalizeWeights,
   parseCsv,
   poissonGap,
   reviewLastDraw,
+  filterByGame,
   scoreNumbers,
   transitionProbability,
   trioEntropy,
@@ -377,5 +379,36 @@ describe('reviewLastDraw — the daily result check', () => {
   it('returns null rather than inventing a comparison', () => {
     expect(reviewLastDraw([], DEFAULT_CONFIG)).toBeNull();
     expect(reviewLastDraw(history.slice(0, 5), DEFAULT_CONFIG)).toBeNull();
+  });
+});
+
+describe('per-game targets — Monday picks on Monday', () => {
+  it('finds the next date the chosen game is drawn', () => {
+    expect(nextDateForGame('Monday Special', '2026-11-16')).toBe('2026-11-23');
+    expect(nextDateForGame('Midweek', '2026-11-21')).toBe('2026-11-25');
+    expect(nextDateForGame('National Weekly', '2026-11-21')).toBe('2026-11-28');
+    expect(nextDateForGame('Lucky Tuesday', '2026-11-21')).toBe('2026-11-24');
+  });
+
+  it('deduces for that game only, never advertising another game\'s draw', () => {
+    const monday = filterByGame(history, 'Monday Special');
+    const d = deduce(monday, DEFAULT_CONFIG, 'Monday Special');
+    expect(d.next.game).toBe('Monday Special');
+    expect(new Date(`${d.next.date}T00:00:00Z`).getUTCDay()).toBe(1);
+    expect(d.meta.drawsUsed).toBe(monday.length);
+    expect(d.meta.drawsUsed).toBeLessThan(history.length);
+  });
+
+  it('keeps the pooled view chronological when no game is given', () => {
+    const d = deduce(history, DEFAULT_CONFIG);
+    expect(d.next.date > history[history.length - 1].draw_date).toBe(true);
+    expect(d.meta.drawsUsed).toBe(Math.min(DEFAULT_CONFIG.lookback, history.length));
+  });
+
+  it('reviews the last draw of the selected game', () => {
+    const midweek = filterByGame(history, 'Midweek');
+    const r = reviewLastDraw(midweek, DEFAULT_CONFIG, 'Midweek')!;
+    expect(r.actual.game_name).toBe('Midweek');
+    expect(r.predicted.targetDate).toBe(r.actual.draw_date);
   });
 });

@@ -260,6 +260,16 @@ export function gameForDate(isoDate: string): string | null {
   ) || null;
 }
 
+/** Next date on which `game` is drawn, strictly after `isoDate`. */
+export function nextDateForGame(game: string, afterIso: string): string {
+  let d = addDays(afterIso, 1);
+  for (let guard = 0; guard < 7; guard++) {
+    if (gameForDate(d) === game) return d;
+    d = addDays(d, 1);
+  }
+  return d;
+}
+
 /** The next scheduled NLA 5/90 event strictly after `isoDate`. */
 export function nextDrawAfter(isoDate: string): { date: string; game: string; label: string } {
   let d = addDays(isoDate, 1);
@@ -867,7 +877,14 @@ function trioScore(members: NumberEvidence[], audit: CombinatorialAudit): number
  */
 export function deduce(
   history: readonly Draw[],
-  config: EngineConfig = DEFAULT_CONFIG
+  config: EngineConfig = DEFAULT_CONFIG,
+  /**
+   * Which game the picks are for. When set, the target is the next date that
+   * *that game* is drawn, so a Midweek analysis never advertises a Monday
+   * draw. Leave undefined for the pooled view (next scheduled event of any
+   * game).
+   */
+  targetGame?: string
 ): Deduction {
   const chron = normalizeHistory(history);
   const { evidence, window, weights, scoreEntropy } = scoreNumbers(chron, config);
@@ -947,7 +964,12 @@ export function deduce(
   const windowEnd = window[window.length - 1]?.draw_date ?? '—';
 
   return {
-    next: nextDrawAfter(windowEnd === '—' ? new Date().toISOString().slice(0, 10) : windowEnd),
+    next: (() => {
+      const anchor = windowEnd === '—' ? new Date().toISOString().slice(0, 10) : windowEnd;
+      if (!targetGame || targetGame === 'all') return nextDrawAfter(anchor);
+      const date = nextDateForGame(targetGame, anchor);
+      return { game: targetGame, date, label: `${targetGame} · ${formatDrawDate(date)}` };
+    })(),
     top: evidence.slice(0, 3),
     trio: primary,
     alternatives,
@@ -1169,14 +1191,15 @@ export function chanceAtLeastOneHit(picks: number): number {
  */
 export function reviewLastDraw(
   history: readonly Draw[],
-  config: EngineConfig = DEFAULT_CONFIG
+  config: EngineConfig = DEFAULT_CONFIG,
+  targetGame?: string
 ): LastDrawReview | null {
   const chron = normalizeHistory(history);
   if (chron.length < 6) return null;
 
   const actual = chron[chron.length - 1];
   const training = chron.slice(0, -1);
-  const before = deduce(training, config);
+  const before = deduce(training, config, targetGame);
   if (before.next.date !== actual.draw_date) return null; // schedule gap — nothing to compare
 
   const picks = before.trio.numbers;

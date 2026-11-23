@@ -9,6 +9,7 @@ import {
   deduce,
   reviewLastDraw,
   filterByGame,
+  gameForDate,
   normalizeHistory,
   parseCsv,
   rowToDraw,
@@ -29,7 +30,10 @@ const state: AppState = {
   health: null,
   draws: [],
   overlay: store.loadOverlay(),
-  game: ui.game ?? 'all',
+  // Default to tonight's game: Monday's picks should come from Monday Special's
+  // own history, not a blend of six games. Falls back to pooled on a Sunday
+  // (no evening draw) or before the schedule is known.
+  game: ui.game ?? todayGame() ?? 'all',
   config: store.loadConfig(),
   view: (ui.view as View) ?? 'deduce',
   deduction: null,
@@ -208,6 +212,11 @@ async function loadDraws(): Promise<void> {
   state.draws = normalizeHistory([...remote, ...state.overlay].filter(notFuture));
 }
 
+/** The game drawn today (UTC), or null on a Sunday. */
+function todayGame(): string | null {
+  return gameForDate(new Date().toISOString().slice(0, 10));
+}
+
 function recompute(): void {
   const scoped = filterByGame(state.draws, state.game);
   if (scoped.length < 5) {
@@ -219,8 +228,9 @@ function recompute(): void {
     ...state.config,
     lookback: Math.max(5, Math.min(state.config.lookback, scoped.length)),
   };
-  state.deduction = deduce(scoped, config);
-  state.review = reviewLastDraw(scoped, config);
+  const targetGame = state.game === 'all' ? undefined : state.game;
+  state.deduction = deduce(scoped, config, targetGame);
+  state.review = reviewLastDraw(scoped, config, targetGame);
 }
 
 async function reloadData(): Promise<void> {

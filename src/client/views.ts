@@ -117,9 +117,12 @@ export function renderControls(state: AppState): string {
         <label class="field">
           <span>Game</span>
           <select id="game-select">
-            <option value="all"${state.game === 'all' ? ' selected' : ''}>All games</option>
+            <option value="all"${state.game === 'all' ? ' selected' : ''}>All games (pooled)</option>
             ${GAMES.map(
-              (g) => `<option value="${esc(g)}"${state.game === g ? ' selected' : ''}>${esc(g)}</option>`
+              (g) =>
+                `<option value="${esc(g)}"${state.game === g ? ' selected' : ''}>${esc(g)}${
+                  g === todayGameLabel() ? ' — today' : ''
+                }</option>`
             ).join('')}
           </select>
         </label>
@@ -479,6 +482,12 @@ function rankingTable(d: Deduction): string {
 }
 
 /** "What the engine said last time, and what actually came out." */
+/** Name of the game drawn today (UTC), for the "— today" hint in the filter. */
+function todayGameLabel(): string {
+  const wd = new Date().getUTCDay();
+  return ['', 'Monday Special', 'Lucky Tuesday', 'Midweek', 'Fortune Thursday', 'Friday Bonanza', 'National Weekly'][wd] ?? '';
+}
+
 function renderLastDrawReview(state: AppState): string {
   const r = state.review;
   if (!r) return '';
@@ -613,6 +622,11 @@ export function renderDeduction(state: AppState): string {
           ? `<p class="mt-1 text-[11px] text-slate-500">${esc(drawnToday)}</p>`
           : ''}
         ${stale ? `<p class="mt-1 text-[11px] text-amber-400/80">${esc(stale)}</p>` : ''}
+        ${state.game !== 'all' && d.meta.drawsUsed < 25
+          ? `<p class="mt-1 text-[11px] text-slate-500">Only ${d.meta.drawsUsed} ${esc(
+              state.game
+            )} draws in the window — per-game evidence is thin, so read the scores as a small-sample opinion. Pooling all six games would use ${state.draws.length} draws.</p>`
+          : ''}
       </div>
       <div class="flex flex-wrap gap-1.5">
         ${badge(`Bayes ${Math.round(d.meta.weights.bayes * 100)}%`, 'ok')}
@@ -859,9 +873,9 @@ export function renderBacktest(state: AppState): string {
  * ========================================================================== */
 
 export function renderLedger(state: AppState): string {
-  const games = ['all', ...GAMES];
+  // The ledger is the audit trail, not an analysis view: it always lists every
+  // game, whatever the deduction filter is set to. Search narrows it instead.
   const filtered = state.draws
-    .filter((d) => (state.game === 'all' ? true : d.game_name === state.game))
     .filter((d) => {
       if (!state.search) return true;
       const q = state.search.toLowerCase();
@@ -960,7 +974,7 @@ export function renderLedger(state: AppState): string {
 
     ${card(`
       <div class="flex flex-wrap items-center justify-between gap-2">
-        <h2 class="text-sm font-semibold text-slate-100">Historical ledger <span class="text-slate-500">(${filtered.length})</span></h2>
+        <h2 class="text-sm font-semibold text-slate-100">Historical ledger <span class="text-slate-500">(${filtered.length} draws, all games)</span></h2>
         <input id="search" type="search" value="${esc(state.search)}" placeholder="Search date, game or number…"
           class="w-full rounded-lg border border-white/10 bg-black/30 px-2.5 py-1.5 text-xs text-slate-200 outline-none focus:border-amber-400/50 sm:w-64" />
       </div>

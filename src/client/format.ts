@@ -106,3 +106,45 @@ export const stat = (label: string, value: string, hint = '', tone = 'text-slate
 /** P-value tone: green when clearly above chance, slate otherwise. */
 export const pTone = (p: number): string =>
   p <= 0.01 ? 'text-emerald-300' : p <= 0.05 ? 'text-amber-300' : 'text-slate-300';
+
+const DAY_MS = 86_400_000;
+
+/** Whole days from `fromIso` to `toIso` (both YYYY-MM-DD, UTC). */
+export function daysBetween(fromIso: string, toIso: string): number {
+  const a = Date.parse(`${fromIso}T00:00:00Z`);
+  const b = Date.parse(`${toIso}T00:00:00Z`);
+  return Number.isFinite(a) && Number.isFinite(b) ? Math.round((b - a) / DAY_MS) : 0;
+}
+
+/** "tonight" / "tomorrow" / "in 3 days" for a target draw date. */
+export function drawWhen(targetIso: string, todayIso: string): string {
+  const days = daysBetween(todayIso, targetIso);
+  if (days === 0) return 'tonight';
+  if (days === 1) return 'tomorrow';
+  if (days < 0) return `${-days} day${days === -1 ? '' : 's'} ago`;
+  return `in ${days} days`;
+}
+
+/**
+ * The picks are always for the next *undrawn* game, which is not the same thing
+ * as "today's". When tonight's draw is already stored the target moves to
+ * tomorrow, so say so instead of calling it today's.
+ */
+export function targetHeading(
+  target: { date: string; game: string },
+  todayIso: string
+): string {
+  return daysBetween(todayIso, target.date) === 0
+    ? `Tonight's draw — ${target.game}`
+    : `Next draw — ${target.game}`;
+}
+
+/** Non-empty when the stored history has not caught up with today. */
+export function stalenessNote(
+  target: { date: string; game: string },
+  todayIso: string
+): string {
+  const days = daysBetween(todayIso, target.date);
+  if (days >= 0) return '';
+  return `Stored results stop ${-days} day${days === -1 ? '' : 's'} before today — refresh (or the 21:00 GMT cron) to move the target to tonight's ${target.game}.`;
+}

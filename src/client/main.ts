@@ -199,7 +199,11 @@ async function loadDraws(): Promise<void> {
     const list = Array.isArray(data) ? data : ((data as { draws?: unknown[] }).draws ?? []);
     remote = (list as unknown[]).map(coerceDraw).filter((d): d is Draw => Boolean(d));
   }
-  state.draws = normalizeHistory([...remote, ...state.overlay]);
+  // Belt and braces: the scraper refuses future rows, but a hand-edited
+  // data/draws.json (or a stale overlay) should not be able to either.
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const notFuture = (d: Draw): boolean => d.draw_date <= todayIso;
+  state.draws = normalizeHistory([...remote, ...state.overlay].filter(notFuture));
 }
 
 function recompute(): void {

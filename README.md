@@ -618,6 +618,24 @@ calendar-realistic draws** (Mon–Sat, one game per evening, newest on
 are only replaced on the dates your source actually publishes, so a fresh history
 fills in from the newest date backwards; check the Ledger tab to see what is real.
 
+### A draw is only a result *after* it has been drawn
+
+Aggregators print the **upcoming** draw next to the last numbers
+(`NEXT DRAW Mon, Nov 23, 2026`). A naive parse treats that as a result date and
+invents a draw that has not happened — which silently moves the dashboard's
+target to the following day. The scraper therefore:
+
+- scrubs `NEXT DRAW <date>` labels out of a block before reading its date;
+- rejects any row dated **after today** (UTC) — a scheduled draw, not a result;
+- rejects a row dated **today before 20:00 GMT**, when the last NLA evening draw
+  (19:15 for the six games, 19:50 for ASEDA) is long finished.
+
+Every skip appears in the refresh warnings, so the Actions run summary says
+exactly what was ignored and why. The dashboard labels its picks for the
+**next undrawn game** — "Tonight's draw — Monday Special" when today's game is
+still to come, "Next draw — Lucky Tuesday" when tonight's result is already
+stored — and shows a warning if stored history has fallen behind today.
+
 ### Game names come from the calendar, not the page
 
 Aggregator pages are unreliable at labelling: they often stamp every row with

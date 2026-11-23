@@ -74,7 +74,7 @@ describe('dashboard (static mode)', () => {
 
     // Wait for the real boot sequence: data loaded → deduction rendered.
     await waitFor(() => Boolean(state()?.deduction), 'engine to produce a deduction');
-    await waitFor(() => appText().includes("Today's three deduced candidates"), 'deduction tab to render');
+    await waitFor(() => /(Tonight's|Next) draw — /.test(appText()), 'deduction tab to render');
   }, 60_000);
 
   it('renders the deduction tab with three picks', () => {
@@ -82,6 +82,10 @@ describe('dashboard (static mode)', () => {
     const text = appText();
     expect(text).toContain('Ghana NLA 5/90');
     expect(app.querySelectorAll('.pick-ball').length).toBe(3);
+    // The heading names the game the picks are actually for — never "today's".
+    expect(text).toMatch(/(Tonight's|Next) draw — /);
+    expect(text).not.toContain("Today's three");
+    expect(text).toMatch(/drawing/);
     expect(text).toContain('Combinatorial audit');
     expect(text).toContain('Plain-English justifications');
     expect(app.querySelectorAll('details').length).toBeGreaterThanOrEqual(3);
@@ -91,6 +95,9 @@ describe('dashboard (static mode)', () => {
     const s = state();
     expect(s.mode).toBe('static');
     expect(s.draws.length).toBeGreaterThanOrEqual(60);
+    // No draw may be dated in the future, whatever the JSON says.
+    const today = new Date().toISOString().slice(0, 10);
+    expect(s.draws.every((d: { draw_date: string }) => d.draw_date <= today)).toBe(true);
     expect(s.deduction.top).toHaveLength(3);
     expect(s.deduction.trio.numbers).toHaveLength(3);
   });

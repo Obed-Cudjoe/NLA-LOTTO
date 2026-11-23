@@ -29,6 +29,17 @@ export interface ParseOptions {
    * but a date is unambiguous. Set false for an unusual rescheduled draw.
    */
   respectSchedule?: boolean;
+  /**
+   * Reference instant for the "has this draw happened?" guard (ISO-8601).
+   * Defaults to the host clock; injectable so tests are not clock-dependent.
+   */
+  now?: string;
+  /**
+   * Earliest GMT time at which today's result may exist. NLA's six evening
+   * games close at 19:15 GMT and the last (ASEDA) at 19:50, so anything dated
+   * "today" before 20:00 is a placeholder, a next-draw label or a stale block.
+   */
+  drawWindowCloses?: string;
 }
 
 export interface ParseResult {
@@ -102,6 +113,18 @@ const MONTHS: Record<string, number> = {
   jul: 6, aug: 7, sep: 8, sept: 8, oct: 9, nov: 10, dec: 11,
 };
 
+/**
+ * Aggregators label every block with the *upcoming* draw ("NEXT DRAW Mon, Nov
+ * 23, 2026"). Those are the wrong dates to attach to the numbers next to them,
+ * and taking them creates draws that have not happened yet — so scrub them
+ * before any date is read out of a block.
+ */
+function scrubNextDrawLabels(text: string): string {
+  return text
+    .replace(/\bnext\s*draw\b[^0-9]{0,24}\d{4}[-/.]\d{1,2}[-/.]\d{1,2}/gi, ' ')
+    .replace(/\bnext\s*draw\b[^0-9]{0,24}\d{1,2}[^0-9]{0,14}\d{2,4}/gi, ' ');
+}
+
 const pad = (n: number) => String(n).padStart(2, '0');
 const iso = (y: number, m: number, d: number) => `${y}-${pad(m + 1)}-${pad(d)}`;
 
@@ -112,7 +135,8 @@ function safeIso(y: number, m: number, d: number): string | null {
 }
 
 /** Find an ISO / numeric / month-name date anywhere in a text blob. */
-export function extractDate(text: string, today = new Date().toISOString().slice(0, 10)): string | null {
+export function extractDate(raw: string, today = new Date().toISOString().slice(0, 10)): string | null {
+  const text = scrubNextDrawLabels(raw);
   // 2026-11-21 / 2026/11/21
   let m = text.match(/\b(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})\b/);
   if (m) {
@@ -419,6 +443,11 @@ export function validateCandidates(candidates: RawCandidate[], opts: ParseOption
   /** draw_date -> signature of the ten numbers, so overlapping strategies can agree. */
   const seen = new Map<string, string>();
 
+  const nowIso = opts.now ?? new Date().toISOString();
+  const todayIso = nowIso.slice(0, 10);
+  const nowTime = nowIso.slice(11, 16);
+  const windowClose = opts.drawWindowCloses ?? '20:00';
+
   for (const [i, c] of candidates.entries()) {
     if (!c.winning.length) continue;
     if (c.machine.length < 5) {
@@ -437,6 +466,22 @@ export function validateCandidates(candidates: RawCandidate[], opts: ParseOption
       errors.push(`candidate ${i + 1}: ${result.errors.join('; ')}`);
       continue;
     }
+    // A draw cannot be dated after today, and today's evening result cannot
+    // exist before the draw windows close. Both patterns come from aggregator
+    // pages that print "NEXT DRAW <date>" next to yesterday's numbers.
+    if (result.draw.draw_date > todayIso) {
+      warnings.push(
+        `${result.draw.draw_date} is in the future (today is ${todayIso}) — that is a scheduled draw, not a result; row skipped`
+      );
+      continue;
+    }
+    if (result.draw.draw_date === todayIso && nowTime < windowClose) {
+      warnings.push(
+        `${result.draw.draw_date} is dated today, but at ${nowTime} GMT the evening draw has not closed yet (results appear after ${windowClose}) — row skipped`
+      );
+      continue;
+    }
+
     // Trust the calendar over the page. Aggregators routinely label every row
     // with whichever game name appears first in their markup, and some list
     // Sunday/ASEDA draws alongside the six 5/90 evening games.

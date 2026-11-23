@@ -18,6 +18,9 @@ import {
 import {
   badge,
   ball,
+  drawWhen,
+  stalenessNote,
+  targetHeading,
   balls,
   card,
   check,
@@ -490,16 +493,28 @@ export function renderDeduction(state: AppState): string {
   }
 
   const label = state.game === 'all' ? 'All six games pooled' : state.game;
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const when = drawWhen(d.next.date, todayIso);
+  const latest = state.draws[state.draws.length - 1];
+  const stale = stalenessNote(d.next, todayIso);
+  const drawnToday =
+    latest && latest.draw_date === todayIso
+      ? `${latest.game_name} already drawn today (${latest.winning.join(' · ')}), so these are for ${when === 'tonight' ? 'the next draw' : when}.`
+      : '';
 
   return `
   <div class="mx-auto max-w-7xl space-y-4 px-4 py-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <div>
-        <h2 class="text-lg font-semibold text-slate-50">Today's three deduced candidates</h2>
+        <h2 class="text-lg font-semibold text-slate-50">${esc(targetHeading(d.next, todayIso))}</h2>
         <p class="text-xs text-slate-400">
-          ${esc(label)} · ${d.meta.drawsUsed}-draw lookback · target
-          <span class="text-amber-300">${esc(d.next.label)}</span>
+          ${esc(label)} · ${d.meta.drawsUsed}-draw lookback · drawing
+          <span class="text-amber-300">${esc(formatDrawDate(d.next.date))}</span> (${esc(when)})
         </p>
+        ${drawnToday
+          ? `<p class="mt-1 text-[11px] text-slate-500">${esc(drawnToday)}</p>`
+          : ''}
+        ${stale ? `<p class="mt-1 text-[11px] text-amber-400/80">${esc(stale)}</p>` : ''}
       </div>
       <div class="flex flex-wrap gap-1.5">
         ${badge(`Bayes ${Math.round(d.meta.weights.bayes * 100)}%`, 'ok')}

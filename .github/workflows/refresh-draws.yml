@@ -1,0 +1,74 @@
+name: Refresh draw results
+
+# Daily 21:00 UTC — after all six NLA 5/90 evening draws (18:30–19:50 GMT) have
+# settled. Fetches the configured results page, validates every draw, merges new
+# rows into data/draws.json and commits. The Pages deploy follows automatically.
+#
+# Set the source page (optional) under:
+#   Repo → Settings → Secrets and variables → Actions → Variables
+#   Name: RESULTS_SOURCE_URL   Value: https://…/results
+# Multiple URLs may be comma-separated; they are tried in order.
+
+on:
+  schedule:
+    - cron: '0 21 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Parse and report only — do not commit'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: refresh-draws
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    name: Fetch, validate, merge
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Fetch and merge draws
+        env:
+          RESULTS_SOURCE_URL: ${{ vars.RESULTS_SOURCE_URL || 'https://www.24lottos.com/lottery/ghana-lotto/results' }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            npm run refresh:data -- --dry-run
+          else
+            npm run refresh:data
+          fi
+
+      - name: Commit new draws
+        if: ${{ inputs.dry_run != true }}
+        run: |
+          if git diff --quiet -- data/draws.json; then
+            echo "No new draws today." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/draws.json
+          git commit -m "chore(data): refresh 5/90 draw results"
+          git pull --rebase --autostash origin "${GITHUB_REF_NAME:-main}"
+          git push
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### Data refresh finished" >> "$GITHUB_STEP_SUMMARY"
+          echo "Source(s): \`${{ vars.RESULTS_SOURCE_URL || 'default list' }}\`" >> "$GITHUB_STEP_SUMMARY"

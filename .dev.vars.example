@@ -1,0 +1,4 @@
+# Copy to .dev.vars for `npm run dev` (wrangler dev). Never commit .dev.vars.
+ADMIN_KEY="choose-a-long-random-key"
+# RESULTS_SOURCE_URL="https://example.com/ghana-results"
+# DEFAULT_GAME="Monday Special"

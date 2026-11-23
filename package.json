@@ -1,0 +1,31 @@
+{
+  "name": "ghana-nla-5-90-engine",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Ghana NLA 5/90 Mathematical & Logical Deduction Engine \u2014 Cloudflare Worker + D1 + static GitHub Pages build",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "predeploy": "npm run build",
+    "deploy": "wrangler deploy",
+    "dev": "npm run build && wrangler dev",
+    "dev:static": "npm run build && node scripts/serve.mjs",
+    "db:create": "wrangler d1 create nla-lotto",
+    "db:init": "wrangler d1 execute nla-lotto --remote --file=./schema.sql",
+    "db:init:local": "wrangler d1 execute nla-lotto --local --file=./schema.sql",
+    "seed": "node scripts/generate-seed.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "refresh:data": "esbuild scripts/refresh-draws.ts --bundle --platform=node --format=esm --outfile=.tmp/refresh.mjs --log-level=error && node .tmp/refresh.mjs",
+    "refresh:dry": "esbuild scripts/refresh-draws.ts --bundle --platform=node --format=esm --outfile=.tmp/refresh.mjs --log-level=error && node .tmp/refresh.mjs --dry-run"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261119.1",
+    "esbuild": "^0.28.2",
+    "jsdom": "^31.0.1",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8",
+    "wrangler": "^4.166.0"
+  }
+}

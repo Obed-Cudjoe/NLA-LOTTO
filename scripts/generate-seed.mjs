@@ -1,0 +1,166 @@
+#!/usr/bin/env node
+/**
+ * Generates the deterministic 60-draw seed dataset for the NLA 5/90 engine.
+ *
+ * Outputs:
+ *   data/draws.json  - canonical seed data (used by the static / GitHub Pages build)
+ *   seed.sql         - INSERT-only seed script
+ *   schema.sql       - DDL + the same 60 seed rows (idempotent: safe to re-run)
+ *
+ * The generator is deterministic (fixed PRNG seed) so `npm run seed` always
+ * reproduces the exact same history. Replace/replace-over with real results via
+ * POST /api/refresh or the Historical Ledger tab.
+ *
+ * NOTE: these rows are *synthetic* placeholder draws on a real NLA calendar
+ * (Mon-Sat, one game per evening). They exist so the dashboard is useful on the
+ * very first deploy. They are NOT official NLA results.
+ *
+ * Usage: node scripts/generate-seed.mjs
+ */
+import { writeFileSync, mkdirSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+/** NLA 5/90 evening games by weekday (0 = Sunday). */
+const GAMES_BY_WEEKDAY = {
+  1: 'Monday Special',
+  2: 'Lucky Tuesday',
+  3: 'Midweek',
+  4: 'Fortune Thursday',
+  5: 'Friday Bonanza',
+  6: 'National Weekly',
+};
+
+const DRAW_COUNT = 60;
+const END_DATE = '2026-11-21'; // last Saturday before "today"
+
+/** mulberry32 — tiny deterministic PRNG. */
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const rand = mulberry32(0x5a90_0b01);
+
+/** Draw 10 distinct balls (5 winning + 5 machine) from 1..90, in drawn order. */
+function drawBalls() {
+  const pool = Array.from({ length: 90 }, (_, i) => i + 1);
+  const picked = [];
+  for (let i = 0; i < 10; i++) {
+    const idx = Math.floor(rand() * pool.length);
+    picked.push(pool.splice(idx, 1)[0]);
+  }
+  return picked;
+}
+
+function isoDate(d) {
+  return d.toISOString().slice(0, 10);
+}
+
+function buildDraws() {
+  const draws = [];
+  const cursor = new Date(`${END_DATE}T00:00:00Z`);
+  while (draws.length < DRAW_COUNT) {
+    const weekday = cursor.getUTCDay();
+    const game = GAMES_BY_WEEKDAY[weekday];
+    if (game) {
+      const balls = drawBalls();
+      draws.push({
+        draw_date: isoDate(cursor),
+        game_name: game,
+        winning: balls.slice(0, 5),
+        machine: balls.slice(5, 10),
+      });
+    }
+    cursor.setUTCDate(cursor.getUTCDate() - 1);
+  }
+  return draws.reverse(); // chronological
+}
+
+const draws = buildDraws();
+
+const sqlString = (s) => `'${String(s).replace(/'/g, "''")}'`;
+
+const DDL = `-- ---------------------------------------------------------------------------
+-- Ghana NLA 5/90 Mathematical & Logical Deduction Engine — D1 schema
+-- ---------------------------------------------------------------------------
+-- Apply with:
+--   npx wrangler d1 execute nla-lotto --remote --file=./schema.sql
+--   npx wrangler d1 execute nla-lotto --local  --file=./schema.sql
+--
+-- Safe to re-run: every statement is idempotent.
+-- ---------------------------------------------------------------------------
+
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE IF NOT EXISTS draws (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  draw_date   TEXT    NOT NULL UNIQUE,          -- ISO date, e.g. '2026-11-21'
+  game_name   TEXT    NOT NULL,                  -- Monday Special ... National Weekly
+  num1        INTEGER NOT NULL CHECK (num1  BETWEEN 1 AND 90),
+  num2        INTEGER NOT NULL CHECK (num2  BETWEEN 1 AND 90),
+  num3        INTEGER NOT NULL CHECK (num3  BETWEEN 1 AND 90),
+  num4        INTEGER NOT NULL CHECK (num4  BETWEEN 1 AND 90),
+  num5        INTEGER NOT NULL CHECK (num5  BETWEEN 1 AND 90),
+  mac1        INTEGER NOT NULL CHECK (mac1  BETWEEN 1 AND 90),
+  mac2        INTEGER NOT NULL CHECK (mac2  BETWEEN 1 AND 90),
+  mac3        INTEGER NOT NULL CHECK (mac3  BETWEEN 1 AND 90),
+  mac4        INTEGER NOT NULL CHECK (mac4  BETWEEN 1 AND 90),
+  mac5        INTEGER NOT NULL CHECK (mac5  BETWEEN 1 AND 90),
+  source      TEXT    NOT NULL DEFAULT 'seed',   -- seed | scraper | manual | csv
+  created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_draws_date ON draws (draw_date DESC);
+CREATE INDEX IF NOT EXISTS idx_draws_game_date ON draws (game_name, draw_date DESC);
+
+-- Handy recipe (kept as a comment, not a VIEW, so it works on every D1 build):
+--
+--   SELECT draw_date, game_name, num1 AS n FROM draws
+--   UNION ALL SELECT draw_date, game_name, num2 FROM draws
+--   ... repeat for num3..num5 and mac1..mac5 ...
+`;
+
+const header =
+  '-- ---------------------------------------------------------------------------\n' +
+  '-- SEED DATA — 60 chronological NLA 5/90 draws (Mon-Sat, one game per evening).\n' +
+  '-- SYNTHETIC placeholder rows so the dashboard works immediately after deploy.\n' +
+  '-- Generated by scripts/generate-seed.mjs — do not hand-edit; re-run the script.\n' +
+  '-- ---------------------------------------------------------------------------\n';
+
+const valueRows = draws.map((d) => {
+  const [a, b, c, e, f] = d.winning;
+  const [m1, m2, m3, m4, m5] = d.machine;
+  return `  (${sqlString(d.draw_date)}, ${sqlString(d.game_name)}, ${a}, ${b}, ${c}, ${e}, ${f}, ${m1}, ${m2}, ${m3}, ${m4}, ${m5}, 'seed')`;
+});
+
+const seedBody = `${header}
+INSERT OR IGNORE INTO draws
+  (draw_date, game_name, num1, num2, num3, num4, num5, mac1, mac2, mac3, mac4, mac5, source)
+VALUES
+${valueRows.join(',\n')};
+`;
+
+const schemaSql = `${DDL}
+-- ===========================================================================
+-- 60 seed draws
+-- ===========================================================================
+${seedBody}`;
+
+mkdirSync(resolve(ROOT, 'data'), { recursive: true });
+writeFileSync(resolve(ROOT, 'data/draws.json'), JSON.stringify(draws, null, 2) + '\n');
+writeFileSync(resolve(ROOT, 'seed.sql'), seedBody);
+writeFileSync(resolve(ROOT, 'schema.sql'), schemaSql);
+
+console.log(
+  `seed: wrote ${draws.length} draws (${draws[0].draw_date} .. ${draws.at(-1).draw_date}) ` +
+    `-> data/draws.json, seed.sql, schema.sql`
+);

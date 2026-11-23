@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Ghana NLA 5/90 — Mathematical &amp; Logical Deduction Engine</title>
+  <meta name="description" content="Personal quantitative analysis, walk-forward backtesting and honest edge auditing for Ghana's NLA 5/90 lottery draws." />
+  <meta name="theme-color" content="#0b1020" />
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b1020'/%3E%3Ccircle cx='32' cy='32' r='18' fill='%23fcd116'/%3E%3Ccircle cx='32' cy='32' r='18' fill='none' stroke='%23ffffff' stroke-opacity='.35' stroke-width='2'/%3E%3Ctext x='32' y='39' font-family='system-ui,sans-serif' font-size='17' font-weight='700' text-anchor='middle' fill='%231a1205'%3E5/90%3C/text%3E%3C/svg%3E" />
+
+  <!-- Tailwind Play CDN: generates utilities at runtime, including for
+       dynamically rendered DOM. Swap for a build step if you ever want
+       fully offline assets. -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            nla: { red: '#ce1126', gold: '#fcd116', green: '#006b3f', ink: '#0b1020' },
+          },
+          fontFamily: {
+            sans: ['ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root { color-scheme: dark; }
+    html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100dvh;
+      background:
+        radial-gradient(1200px 600px at 15% -10%, rgba(252, 209, 22, 0.10), transparent 60%),
+        radial-gradient(900px 500px at 105% 10%, rgba(0, 107, 63, 0.14), transparent 55%),
+        radial-gradient(700px 500px at 50% 110%, rgba(206, 17, 38, 0.10), transparent 60%),
+        #070b13;
+      color: #e2e8f0;
+      font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    ::selection { background: rgba(252, 209, 22, 0.28); }
+
+    /* ---- balls ---- */
+    .ball {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 2rem; height: 2rem; border-radius: 9999px;
+      font-size: 0.8rem; font-weight: 700; font-variant-numeric: tabular-nums;
+      line-height: 1; flex: none; user-select: none;
+    }
+    .ball-sm { width: 1.5rem; height: 1.5rem; font-size: 0.68rem; }
+    .ball-win {
+      background: linear-gradient(150deg, #fde68a 0%, #fcd116 45%, #f59e0b 100%);
+      color: #241a02; box-shadow: inset 0 1px 2px rgba(255,255,255,.55), inset 0 -2px 4px rgba(0,0,0,.18), 0 1px 4px rgba(0,0,0,.35);
+    }
+    .ball-machine {
+      background: rgba(148,163,184,.10); color: #cbd5e1;
+      box-shadow: inset 0 0 0 1px rgba(148,163,184,.32); border: 1px dashed rgba(148,163,184,.28);
+    }
+    .ball-pick {
+      background: linear-gradient(150deg, #fef08a 0%, #fcd116 40%, #ca8a04 100%);
+      color: #241a02; box-shadow: inset 0 1px 2px rgba(255,255,255,.6), 0 2px 8px rgba(252,209,22,.28);
+    }
+    .ball-match {
+      background: linear-gradient(150deg, #6ee7b7, #10b981 60%, #047857);
+      color: #04140d; box-shadow: 0 0 0 2px rgba(16,185,129,.28);
+    }
+    .ball-quiet {
+      background: rgba(255,255,255,.055); color: #e2e8f0; box-shadow: inset 0 0 0 1px rgba(255,255,255,.10);
+    }
+    .pick-ball {
+      display: grid; place-items: center; width: 4.75rem; height: 4.75rem; border-radius: 9999px;
+      font-size: 2.1rem; font-weight: 800; color: #241a02; font-variant-numeric: tabular-nums;
+      background: radial-gradient(circle at 32% 26%, #fef9c3 0%, #fcd116 42%, #d97706 100%);
+      box-shadow: inset 0 3px 8px rgba(255,255,255,.55), inset 0 -6px 12px rgba(120,53,15,.28), 0 10px 26px rgba(252,209,22,.20);
+    }
+
+    /* ---- controls ---- */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: .35rem;
+      border-radius: .65rem; padding: .45rem .7rem; font-size: .75rem; font-weight: 600;
+      border: 1px solid transparent; cursor: pointer; transition: transform .06s ease, filter .15s ease;
+      white-space: nowrap;
+    }
+    .btn:active { transform: translateY(1px); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-primary { background: linear-gradient(180deg, #fde047, #fcd116 55%, #eab308); color: #241a02; box-shadow: 0 4px 14px rgba(252,209,22,.18); }
+    .btn-primary:hover:not(:disabled) { filter: brightness(1.06); }
+    .btn-ghost { background: rgba(255,255,255,.05); border-color: rgba(255,255,255,.12); color: #e2e8f0; }
+    .btn-ghost:hover:not(:disabled) { background: rgba(255,255,255,.09); }
+
+    .field { display: flex; flex-direction: column; justify-content: flex-start; gap: .3rem; min-width: 0; }
+    .field > span:first-child { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: #94a3b8; display: block; }
+    .field > span:first-child b { color: #fcd116; font-variant-numeric: tabular-nums; }
+
+    select, input[type="text"], input[type="date"], input[type="number"], input[type="url"],
+    input[type="password"], input[type="search"], textarea {
+      background: rgba(0,0,0,.32); border: 1px solid rgba(255,255,255,.10); border-radius: .5rem;
+      padding: .35rem .5rem; font-size: .75rem; color: #e2e8f0; outline: none; width: 100%;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    select:focus, input:focus, textarea:focus { border-color: rgba(252,209,22,.55); box-shadow: 0 0 0 2px rgba(252,209,22,.12); }
+    input[type="range"] {
+      -webkit-appearance: none; appearance: none; width: 100%; height: 18px; background: transparent; cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-runnable-track { height: 4px; border-radius: 9999px; background: rgba(255,255,255,.14); }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 14px; height: 14px; margin-top: -5px; border-radius: 9999px;
+      background: #fcd116; border: 2px solid #0b1020; box-shadow: 0 0 0 1px rgba(252,209,22,.6);
+    }
+    input[type="range"]::-moz-range-track { height: 4px; border-radius: 9999px; background: rgba(255,255,255,.14); }
+    input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 9999px; background: #fcd116; border: 2px solid #0b1020; }
+    .num-input { text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; padding: .45rem 0; }
+    .num-input::-webkit-outer-spin-button, .num-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+    .tab {
+      display: inline-flex; align-items: center; gap: .35rem; padding: .5rem .8rem;
+      font-size: .8rem; font-weight: 500; color: #94a3b8; border-radius: .6rem .6rem 0 0;
+      border-bottom: 2px solid transparent; cursor: pointer; white-space: nowrap;
+    }
+    .tab:hover { color: #e2e8f0; background: rgba(255,255,255,.03); }
+    .tab-active { color: #fcd116; border-bottom-color: #fcd116; background: rgba(255,255,255,.05); }
+
+    .pill { display: inline-block; border-radius: 9999px; background: rgba(255,255,255,.06); padding: .1rem .45rem; font-variant-numeric: tabular-nums; }
+
+    .flag-mark { display: grid; grid-template-rows: repeat(4, 1fr); width: 22px; height: 28px; border-radius: 4px; overflow: hidden; box-shadow: 0 0 0 1px rgba(255,255,255,.14); flex: none; }
+    .flag-mark span { display: block; }
+
+    details > summary { list-style: none; }
+    details > summary::-webkit-details-marker { display: none; }
+    details[open] > summary { margin-bottom: .25rem; }
+
+    /* thin scrollbars inside tables */
+    .overflow-auto::-webkit-scrollbar, .overflow-x-auto::-webkit-scrollbar { height: 8px; width: 8px; }
+    .overflow-auto::-webkit-scrollbar-thumb, .overflow-x-auto::-webkit-scrollbar-thumb { background: rgba(255,255,255,.14); border-radius: 9999px; }
+    .overflow-auto::-webkit-scrollbar-track, .overflow-x-auto::-webkit-scrollbar-track { background: transparent; }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div class="flex min-h-screen items-center justify-center text-sm text-slate-400">
+      <span class="mr-3 h-4 w-4 animate-spin rounded-full border-2 border-amber-300 border-t-transparent"></span>
+      Loading NLA 5/90 engine…
+    </div>
+  </div>
+  <noscript>
+    <div style="max-width:32rem;margin:4rem auto;padding:1.5rem;border:1px solid rgba(255,255,255,.12);border-radius:.75rem">
+      <h1 style="font-size:1rem;margin:0 0 .5rem">JavaScript is required</h1>
+      <p style="font-size:.8rem;color:#94a3b8;margin:0">
+        The four-pillar deduction engine runs entirely in your browser. Enable JavaScript to use the dashboard,
+        or query the API directly (e.g. <code>/api/analysis</code>) if you deployed the Cloudflare Worker.
+      </p>
+    </div>
+  </noscript>
+  <script type="module" src="./assets/app.js"></script>
+</body>
+</html>

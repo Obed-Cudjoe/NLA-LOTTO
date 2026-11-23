@@ -50,7 +50,25 @@ jobs:
         run: npm run typecheck
 
       - name: Unit tests
-        run: npm test
+        run: |
+          set -o pipefail
+          npm test 2>&1 | tee "${RUNNER_TEMP:-/tmp}/vitest.log"
+
+      - name: Surface test failures as annotations
+        if: failure()
+        run: |
+          LOG="${RUNNER_TEMP:-/tmp}/vitest.log"
+          if [ -f "$LOG" ]; then
+            echo "### Vitest output (tail)" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            tail -n 120 "$LOG" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            grep -E "^ *(×|FAIL)" "$LOG" | head -n 15 | while IFS= read -r line; do
+              echo "::error title=Test failure::$line"
+            done
+          fi
+          node -v
+          npm -v
 
       - name: Build static dashboard
         run: npm run build

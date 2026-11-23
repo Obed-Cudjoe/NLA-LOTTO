@@ -210,17 +210,30 @@ export async function commitDrawsToGitHub(
 
 /**
  * Best guess at this site's repository: the saved setting, else the GitHub
- * Pages URL itself (`owner.github.io/<repo>`, or `owner.github.io` for a root
- * site). Used to prefill the Data tab and to build the Actions deep link.
+ * Pages URL itself. Used to prefill the Data tab and to build the Actions deep
+ * link, so getting it wrong means every button 404s.
+ *
+ * A project site is `owner.github.io/<repo>` — with *or without* a trailing
+ * slash, and also when a deep path is appended (`/<repo>/index.html`). Only a
+ * bare `owner.github.io/` is a root user site, whose repository is named
+ * `owner.github.io`. The first path segment is therefore the repo, never the
+ * second.
+ *
+ * `href` is injectable so the rule can be tested without a browser.
  */
-export function guessRepo(saved: string): string {
+export function guessRepo(saved: string, href = location.href): string {
   const trimmed = saved.trim();
   if (trimmed) return trimmed;
-  const host = location.hostname;
-  if (!host.endsWith('.github.io')) return '';
-  const owner = host.slice(0, -'.github.io'.length);
-  const [, repo] = location.pathname.split('/').filter(Boolean);
-  return repo ? `${owner}/${repo}` : `${owner}/${owner}.github.io`;
+  let url: URL;
+  try {
+    url = new URL(href);
+  } catch {
+    return '';
+  }
+  if (!url.hostname.endsWith('.github.io')) return '';
+  const owner = url.hostname.slice(0, -'.github.io'.length);
+  const [first] = url.pathname.split('/').filter(Boolean);
+  return first ? `${owner}/${first}` : `${owner}/${owner}.github.io`;
 }
 
 /** Deep link to a workflow's page (the "Run workflow" button lives there). */

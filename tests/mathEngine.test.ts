@@ -11,6 +11,7 @@ import {
   backtest,
   bayesPosterior,
   binomialTailAtLeast,
+  chanceAtLeastOneHit,
   choose,
   deduce,
   incompleteBeta,
@@ -18,6 +19,7 @@ import {
   normalizeWeights,
   parseCsv,
   poissonGap,
+  reviewLastDraw,
   scoreNumbers,
   transitionProbability,
   trioEntropy,
@@ -336,5 +338,44 @@ describe('history helpers', () => {
     const clean = normalizeHistory(messy);
     expect(clean).toHaveLength(3);
     expect(clean.map((d) => d.draw_date)).toEqual([...clean.map((d) => d.draw_date)].sort());
+  });
+});
+
+describe('reviewLastDraw — the daily result check', () => {
+  it('re-runs the walk-forward step and counts real hits', () => {
+    const review = reviewLastDraw(history, DEFAULT_CONFIG);
+    expect(review).not.toBeNull();
+    const r = review!;
+    expect(r.actual.draw_date).toBe(history[history.length - 1].draw_date);
+    expect(r.predicted.numbers).toHaveLength(3);
+    expect(r.hits).toBe(r.matched.length);
+    expect(r.matched.every((n) => r.actual.winning.includes(n))).toBe(true);
+    expect(r.matchedMachine.every((n) => !r.actual.winning.includes(n))).toBe(true);
+    expect(r.ranked).toHaveLength(5);
+    expect(r.ranked.map((x) => x.number).sort((a, b) => a - b)).toEqual(
+      [...r.actual.winning].sort((a, b) => a - b)
+    );
+    expect(r.verdict.length).toBeGreaterThan(20);
+  });
+
+  it('reports chance-level expectations, not promises', () => {
+    const r = reviewLastDraw(history, DEFAULT_CONFIG)!;
+    expect(r.expectedHits).toBeCloseTo(3 * (5 / 90), 10);
+    // 1 - C(85,3)/C(90,3)
+    expect(r.pAtLeastOne).toBeCloseTo(0.1593, 3);
+    expect(chanceAtLeastOneHit(0)).toBeCloseTo(0, 10);
+    expect(chanceAtLeastOneHit(1)).toBeCloseTo(5 / 90, 10);
+  });
+
+  it('is deterministic — same history, same verdict', () => {
+    const a = reviewLastDraw(history, DEFAULT_CONFIG)!;
+    const b = reviewLastDraw(history, DEFAULT_CONFIG)!;
+    expect(a.predicted.numbers).toEqual(b.predicted.numbers);
+    expect(a.verdict).toBe(b.verdict);
+  });
+
+  it('returns null rather than inventing a comparison', () => {
+    expect(reviewLastDraw([], DEFAULT_CONFIG)).toBeNull();
+    expect(reviewLastDraw(history.slice(0, 5), DEFAULT_CONFIG)).toBeNull();
   });
 });

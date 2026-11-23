@@ -1,4 +1,5 @@
-import type { BacktestResult, Deduction, Draw, EngineConfig } from '../mathEngine';
+import type {
+  LastDrawReview, BacktestResult, Deduction, Draw, EngineConfig } from '../mathEngine';
 
 export type Mode = 'worker' | 'static';
 export type View = 'deduce' | 'backtest' | 'ledger' | 'settings';
@@ -39,6 +40,8 @@ export interface AppState {
   config: EngineConfig;
   view: View;
   deduction: Deduction | null;
+  /** What the engine said before the newest stored draw, vs what came out. */
+  review: LastDrawReview | null;
   backtest: BacktestResult | null;
   backtestOpts: { minTrain: number; simulations: number };
   settings: Settings;

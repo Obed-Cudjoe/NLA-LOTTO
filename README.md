@@ -79,6 +79,19 @@ app says that in the UI too.
   you straight to the Data tab, which has the working controls. In normal
   operation you never press it: the 21:00 GMT cron already did the work.
 
+**Last draw vs the engine** (top of the Deduction tab)
+- The newest stored result next to the trio the engine produced *before* that
+  draw — re-run deterministically, so it works even for draws that happened
+  before this feature existed.
+- Hits, machine-set hits, expected hits per draw (0.17) and the exact
+  probability of at least one hit (15.9% for three picks).
+- A "why" table: each winning number with the rank and blended z-score the
+  model gave it *before* the draw, so you can see whether the draw was
+  surprising or unremarkable.
+- A plain verdict per outcome, including the blunt ones: a blank line is the
+  most likely result (84% of draws). Nothing here explains *why* the drum chose
+  those balls — only how the model rated them beforehand.
+
 **Backtester tab**
 - Strict walk-forward simulation: draw *t* is predicted using only draws
   1…*t*−1, with the lookback, Markov matrix and Beta posterior rebuilt at every

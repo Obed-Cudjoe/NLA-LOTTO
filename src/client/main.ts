@@ -7,6 +7,7 @@ import {
   DEFAULT_CONFIG,
   backtest as runBacktestEngine,
   deduce,
+  reviewLastDraw,
   filterByGame,
   normalizeHistory,
   parseCsv,
@@ -32,6 +33,7 @@ const state: AppState = {
   config: store.loadConfig(),
   view: (ui.view as View) ?? 'deduce',
   deduction: null,
+  review: null,
   backtest: null,
   backtestOpts: { minTrain: ui.minTrain ?? 25, simulations: ui.simulations ?? 300 },
   settings: store.loadSettings(),
@@ -210,6 +212,7 @@ function recompute(): void {
   const scoped = filterByGame(state.draws, state.game);
   if (scoped.length < 5) {
     state.deduction = null;
+    state.review = null;
     return;
   }
   const config: EngineConfig = {
@@ -217,6 +220,7 @@ function recompute(): void {
     lookback: Math.max(5, Math.min(state.config.lookback, scoped.length)),
   };
   state.deduction = deduce(scoped, config);
+  state.review = reviewLastDraw(scoped, config);
 }
 
 async function reloadData(): Promise<void> {

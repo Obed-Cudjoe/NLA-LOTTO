@@ -478,6 +478,104 @@ function rankingTable(d: Deduction): string {
   `);
 }
 
+/** "What the engine said last time, and what actually came out." */
+function renderLastDrawReview(state: AppState): string {
+  const r = state.review;
+  if (!r) return '';
+  const actual = r.actual;
+  const pickTone = (n: number): string => (actual.winning.includes(n) ? 'text-emerald-300' : '');
+  const allWinning = [...actual.winning].sort((a, b) => a - b);
+
+  return card(`
+    <div class="flex flex-wrap items-start justify-between gap-2">
+      <div>
+        <h3 class="text-sm font-semibold text-slate-100">Last draw vs the engine</h3>
+        <p class="text-[11px] text-slate-400">
+          ${esc(actual.game_name)} · ${esc(formatDrawDate(actual.draw_date))} ·
+          the picks below were made from the ${r.predicted.numbers.length === 3 ? `${r.predicted.numbers.length}-number trio` : 'trio'} the engine gave *before* this draw
+        </p>
+      </div>
+      ${badge(
+        r.hits === 0 ? 'no hit' : `${r.hits} of 3 hit`,
+        r.hits === 0 ? 'muted' : r.hits >= 2 ? 'ok' : 'info'
+      )}
+    </div>
+
+    <div class="mt-3 grid gap-3 sm:grid-cols-2">
+      <div>
+        <p class="text-[10px] uppercase tracking-wide text-slate-500">Drawn</p>
+        <div class="mt-1 flex flex-wrap gap-1">${balls(allWinning)}</div>
+        <p class="mt-1 text-[10px] text-slate-500">Machine: ${actual.machine.join(' · ')}</p>
+      </div>
+      <div>
+        <p class="text-[10px] uppercase tracking-wide text-slate-500">Engine said</p>
+        <div class="mt-1 flex flex-wrap items-center gap-1">
+          ${r.predicted.numbers
+            .map(
+              (n) =>
+                `<span class="inline-flex h-7 min-w-7 items-center justify-center rounded-full border px-1.5 text-xs font-semibold ${
+                  pickTone(n) ||
+                  'border-slate-700 bg-slate-800/80 text-slate-300'
+                }">${n}</span>`
+            )
+            .join('')}
+        </div>
+        <p class="mt-1 text-[10px] text-slate-500">
+          ${r.hits} hit · ${r.matchedMachine.length ? `${r.matchedMachine.length} in the machine set` : 'none in the machine set'} ·
+          expected ${num(r.expectedHits)} per draw
+        </p>
+      </div>
+    </div>
+
+    <p class="mt-3 text-[11px] leading-relaxed text-slate-300">${esc(r.verdict)}</p>
+
+    <details class="mt-3 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2">
+      <summary class="cursor-pointer text-[11px] font-medium text-slate-300">
+        Why these five numbers, and how surprising was the draw?
+      </summary>
+      <p class="mt-2 text-[11px] leading-relaxed text-slate-400">
+        Rank 1 means the model rated that number most likely; a rank near 90 means it rated it
+        cold. Probability of at least one hit with three picks is ${pct(r.pAtLeastOne)} per draw,
+        so a blank line is the normal case — the drum does not consult the ranking.
+      </p>
+      <div class="mt-2 overflow-x-auto">
+        <table class="w-full text-left text-[11px]">
+          <thead class="text-[10px] uppercase tracking-wide text-slate-500">
+            <tr><th class="py-1 pr-3">Number</th><th class="py-1 pr-3">Pre-draw rank</th><th class="py-1 pr-3">Blended z</th><th class="py-1">Verdict</th></tr>
+          </thead>
+          <tbody>
+            ${r.ranked
+              .map(
+                (x) => `<tr class="border-t border-slate-800/70">
+                  <td class="py-1 pr-3 font-semibold text-slate-100">${x.number}</td>
+                  <td class="py-1 pr-3 text-slate-300">${x.rank} / 90</td>
+                  <td class="py-1 pr-3 ${zTone(x.z)}">${signed(x.z)}</td>
+                  <td class="py-1 text-slate-400">${
+                    x.hit
+                      ? 'was in the engine\'s trio'
+                      : x.rank <= 15
+                        ? 'engine rated it highly, but it was not in the trio'
+                        : x.rank >= 70
+                          ? 'engine rated it cold'
+                          : 'mid-table — no signal either way'
+                  }</td>
+                </tr>`
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+      <p class="mt-2 text-[10px] leading-snug text-slate-500">
+        Computed with your current weights (${Math.round(r.predicted.weights.bayes * 100)}/${Math.round(
+          r.predicted.weights.poisson * 100
+        )}/${Math.round(r.predicted.weights.markov * 100)}) and lookback, so if you have changed
+        the sliders since, this is what the engine <em>would</em> have said — not necessarily what
+        your screen showed that evening.
+      </p>
+    </details>
+  `);
+}
+
 export function renderDeduction(state: AppState): string {
   const d = state.deduction;
   if (!d) {
@@ -522,6 +620,8 @@ export function renderDeduction(state: AppState): string {
         ${badge(`Markov ${Math.round(d.meta.weights.markov * 100)}%`, 'muted')}
       </div>
     </div>
+
+    ${renderLastDrawReview(state)}
 
     <div class="grid gap-4 lg:grid-cols-3">
       <div class="grid gap-3 sm:grid-cols-3 lg:col-span-2">

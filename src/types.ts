@@ -207,6 +207,28 @@ export interface Deduction {
   };
 }
 
+/**
+ * What the engine said *before* the most recent stored draw, next to what the
+ * drum actually produced. Deterministic: it re-runs the walk-forward step, so
+ * it is available even for draws that happened before this feature existed.
+ */
+export interface LastDrawReview {
+  actual: Draw;
+  predicted: { numbers: number[]; targetDate: string; weights: PillarWeights };
+  /** Predicted numbers that landed in the five winning numbers. */
+  matched: number[];
+  /** Predicted numbers that landed in the machine numbers (not a win). */
+  matchedMachine: number[];
+  hits: number;
+  /** 3 picks x 5/90. */
+  expectedHits: number;
+  /** Exact hypergeometric probability of at least one hit with three picks. */
+  pAtLeastOne: number;
+  /** The winning numbers as the model ranked them *before* the draw. */
+  ranked: Array<{ number: number; rank: number; z: number; hit: boolean }>;
+  verdict: string;
+}
+
 export interface BacktestRun {
   index: number;
   draw_date: string;

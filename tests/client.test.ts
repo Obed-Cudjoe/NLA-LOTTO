@@ -91,6 +91,17 @@ describe('dashboard (static mode)', () => {
     expect(app.querySelectorAll('details').length).toBeGreaterThanOrEqual(3);
   });
 
+  it('shows what the engine said before the last draw', async () => {
+    await click('[data-action="tab"][data-tab="deduce"]');
+    await waitFor(() => appText().includes('Last draw vs the engine'), 'review card');
+    expect(state().review).toBeTruthy();
+    expect(appText()).toContain('Engine said');
+    expect(appText()).toMatch(/expected 0\.17 per draw/);
+    expect(appText()).toContain('Pre-draw rank');
+    // Honest wording: a blank line is the normal outcome, not a failure.
+    expect(appText()).toMatch(/most likely outcome/i);
+  });
+
   it('exposes the live state for debugging', () => {
     const s = state();
     expect(s.mode).toBe('static');

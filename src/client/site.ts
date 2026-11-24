@@ -370,7 +370,8 @@ export function renderHome(state: AppState): string {
               'No forecast is guaranteed — the drum has no memory.',
               'Every statistical claim on this site is computed from stored draws.',
               'The tool is free, offline-capable and needs no account.',
-              'If gambling stops being fun, stop. Help: 0800 000 000 (Ghana Mental Health Authority).',
+              // No invented hotline number. Say the true thing and nothing more.
+              'If gambling stops being fun, stop — and tell someone you trust.',
             ]
               .map(
                 (line) => `<li class="flex gap-2">
@@ -713,8 +714,9 @@ export function renderMethod(state: AppState): string {
       ${card(`
         <h2 class="text-sm font-semibold text-slate-100">The drum does the work</h2>
         <p class="mt-2 text-[12px] leading-relaxed text-slate-300">
-          Mixing is measured in collisions. A running drum throws balls together roughly ten times a
-          second, and it takes about <b class="text-slate-100">${fixed(needed, 0)}</b> collisions for a
+          Mixing is measured in collisions. The model assumes a running drum throws balls together
+          about ten times a second — an order-of-magnitude figure, not a published NLA measurement —
+          and it takes about <b class="text-slate-100">${fixed(needed, 0)}</b> collisions for a
           ball's position to stop carrying information about where it started. The configured shake of
           <b class="text-slate-100">${fixed(state.lab.shakeSeconds, 0)} s</b> supplies
           <b class="text-slate-100">${n0(mixSeconds)} s</b> of effective mixing once the walk to the

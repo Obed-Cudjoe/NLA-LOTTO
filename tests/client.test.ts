@@ -444,6 +444,9 @@ describe('dashboard (static mode)', () => {
       const text = appText();
       expect(text.length, `${page} rendered something`).toBeGreaterThan(200);
       expect(text, `${page} has no broken interpolation`).not.toMatch(/undefined|NaN|\[object Object\]/);
+      // No invented contact details: a made-up helpline number is as dishonest
+      // as a made-up statistic, so the site must not print one at all.
+      expect(text, `${page} invents no phone number`).not.toMatch(/\b0\d{2,3}[\s-]?\d{3}[\s-]?\d{3,4}\b/);
     }
   });
 });

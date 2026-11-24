@@ -749,6 +749,71 @@ export function renderSmart(state: AppState): string {
       ${jackpot ? jackpot.multiplier.toLocaleString() : '44,000'}× on a 1-in-${jackpot ? n0(jackpot.oneIn) : '43,949,268'} shot.
     </p>
 
+    ${card(`
+      <h2 class="text-sm font-semibold text-slate-100">What actually raises your chance</h2>
+      <p class="mt-2 text-[12px] leading-relaxed text-slate-300">
+        Three levers exist. Two of them work, and the third — the one everybody reaches for — does
+        not move the probability by a single thousandth.
+      </p>
+
+      <div class="mt-3 grid gap-2 text-[12px] leading-relaxed">
+        <p><b class="text-slate-100">Lever 1 — buy more lines.</b> Each additional line adds its own
+        chance, so probability rises roughly in step with the number of lines. So does the cost,
+        which is why the expected return in the last column never improves.</p>
+        <p><b class="text-slate-100">Lever 2 — pick the ticket that matches your goal.</b>
+        Direct 1 has the highest hit rate per cedi (1 in 90 = 1.11% a line). Direct 2 has the best
+        expected return (0.60 back per 1.00). Those are different prizes: the first maximises how
+        often you win <em>something</em>, the second minimises how fast you lose.</p>
+        <p><b class="text-slate-100">Lever 3 — which numbers you choose. This lever does nothing.</b>
+        Every combination of five is equally likely; a pick that follows a trend is following
+        nothing. On this site it is a hypothesis being tested, not a tool.</p>
+      </div>
+
+      <div class="mt-3 overflow-x-auto">
+        <table class="w-full min-w-[560px] text-left text-[11px]">
+          <thead class="text-[10px] uppercase tracking-wide text-slate-500">
+            <tr>
+              <th class="py-1 pr-2">Ticket</th>
+              <th class="py-1 pr-2">Stake 10</th>
+              <th class="py-1 pr-2">Stake 50</th>
+              <th class="py-1 pr-2">Stake 100</th>
+              <th class="py-1">Returns 100 staked</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${['direct1', 'direct2', 'direct3']
+              .map((id) => {
+                const bet = betTypes().find((b) => b.id === id)!;
+                const cells = [10, 50, 100].map((stake) => {
+                  const cov = coverage({ betId: bet.id, lines: stake, stakePerLine: 1 });
+                  return `<td class="py-1 pr-2 text-slate-300">${pct(cov.pAnyWin, 1)} <span class="text-slate-500">chance of a win</span></td>`;
+                });
+                const big = coverage({ betId: bet.id, lines: 100, stakePerLine: 1 });
+                return `<tr class="border-t border-white/5">
+                  <td class="py-1 pr-2 text-slate-100">${esc(bet.label)} <span class="text-slate-500">${bet.multiplier.toLocaleString()}×</span></td>
+                  ${cells.join('')}
+                  <td class="py-1 text-slate-300">${n0(big.expectedReturnValue)}</td>
+                </tr>`;
+              })
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <p class="mt-2 rounded-lg border border-amber-400/20 bg-amber-400/5 p-2.5 text-[11px] leading-relaxed text-amber-100/85">
+        Read the row and then the last column. Staking 100 on Direct 1 buys a
+        <b>${pct(coverage({ betId: 'direct1', lines: 100 }).pAnyWin, 0)}</b> chance of winning
+        <em>something</em> — and an expected return of
+        <b>${n0(coverage({ betId: 'direct1', lines: 100 }).expectedReturnValue)}</b>. You can buy a high
+        chance of a win. You cannot buy a high chance of coming out ahead, because every price on the
+        board is set below the odds.
+      </p>
+      <p class="mt-2 text-[11px] leading-relaxed text-slate-500">
+        The same arithmetic on Direct 5: at a stake of 10 the chance of any win is
+        ${pct(coverage({ betId: 'direct5', lines: 10 }).pAnyWin, 4)}, and it stays under 1% until the
+        stake passes four hundred thousand.
+      </p>`)}
+
     <div class="mt-8 grid gap-3 lg:grid-cols-2">
       ${card(`
         <h2 class="text-sm font-semibold text-slate-100">Coverage buys odds, not edge</h2>

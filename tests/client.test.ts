@@ -406,6 +406,11 @@ describe('dashboard (static mode)', () => {
     expect(appText()).toContain('House keeps');
     expect(appText()).toContain('Coverage buys odds, not edge');
 
+    // A 50% chance is purchasable — and the price is stated plainly.
+    await waitFor(() => appText().includes('What 50/50 actually costs'), 'confidence cost table');
+    expect(appText()).toContain('30,463,311');
+    expect(appText()).toMatch(/−30,432,813|−30,4/);
+
     await click('[data-action="goto"][data-page="results"]');
     await waitFor(() => appText().includes('Every draw we hold'), 'results page');
     expect(window.location.hash).toBe('#/results');

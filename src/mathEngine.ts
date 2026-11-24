@@ -260,6 +260,55 @@ export function gameForDate(isoDate: string): string | null {
   ) || null;
 }
 
+/** Draws close at 20:30 GMT on the day (the 8pm GTV draw plus a margin). */
+export const DRAW_CLOSE_UTC_MINUTES = 20 * 60 + 30;
+
+/** True once today's draw window has closed, in UTC. */
+export function drawWindowClosed(now: Date = new Date()): boolean {
+  return now.getUTCHours() * 60 + now.getUTCMinutes() >= DRAW_CLOSE_UTC_MINUTES;
+}
+
+export interface OpenDraw {
+  date: string;
+  game: string;
+  label: string;
+}
+
+/**
+ * The next draw a player can still stake on.
+ *
+ * Two things can end a draw, and the calendar only knows about one of them:
+ *   1. the clock passes 20:30 GMT on the day, and
+ *   2. the result is already in the archive.
+ *
+ * Both are checked here, so the moment a result lands the target rolls to the
+ * following game instead of advertising a draw that has already been held.
+ * `game` restricts the search to one weekday's game when the caller has scoped
+ * the analysis; leave it empty for the next draw of any game.
+ */
+export function nextOpenDraw(
+  history: readonly Draw[],
+  now: Date = new Date(),
+  game?: string | null
+): OpenDraw {
+  const todayIso = now.toISOString().slice(0, 10);
+  const closed = drawWindowClosed(now);
+  const want = game && game !== 'all' ? game.toLowerCase() : null;
+  const settled = new Set(
+    history.map((d) => `${d.draw_date}|${String(d.game_name).toLowerCase()}`)
+  );
+  for (let i = 0; i < 14; i++) {
+    const date = addDays(todayIso, i);
+    const weekdayGame = gameForDate(date);
+    if (!weekdayGame) continue;
+    if (want && weekdayGame.toLowerCase() !== want) continue;
+    if (settled.has(`${date}|${weekdayGame.toLowerCase()}`)) continue;
+    if (i === 0 && closed) continue;
+    return { date, game: weekdayGame, label: `${weekdayGame} · ${formatDrawDate(date)}` };
+  }
+  return nextDrawAfter(todayIso);
+}
+
 /** Next date on which `game` is drawn, strictly after `isoDate`. */
 export function nextDateForGame(game: string, afterIso: string): string {
   let d = addDays(afterIso, 1);
@@ -884,7 +933,9 @@ export function deduce(
    * draw. Leave undefined for the pooled view (next scheduled event of any
    * game).
    */
-  targetGame?: string
+  targetGame?: string,
+  /** Clock used to decide whether today's draw is still open. Injectable for tests. */
+  now: Date = new Date()
 ): Deduction {
   const chron = normalizeHistory(history);
   const { evidence, window, weights, scoreEntropy } = scoreNumbers(chron, config);
@@ -964,12 +1015,9 @@ export function deduce(
   const windowEnd = window[window.length - 1]?.draw_date ?? '—';
 
   return {
-    next: (() => {
-      const anchor = windowEnd === '—' ? new Date().toISOString().slice(0, 10) : windowEnd;
-      if (!targetGame || targetGame === 'all') return nextDrawAfter(anchor);
-      const date = nextDateForGame(targetGame, anchor);
-      return { game: targetGame, date, label: `${targetGame} · ${formatDrawDate(date)}` };
-    })(),
+    // The target is the next draw that can still be staked on — not the next
+    // date on the calendar. A result in the archive ends its own draw.
+    next: nextOpenDraw(chron, now, targetGame && targetGame !== 'all' ? targetGame : null),
     top: evidence.slice(0, 3),
     trio: primary,
     alternatives,
@@ -1199,7 +1247,9 @@ export function reviewLastDraw(
 
   const actual = chron[chron.length - 1];
   const training = chron.slice(0, -1);
-  const before = deduce(training, config, targetGame);
+  // Re-run the model as it stood on the morning of the draw: the target is then
+  // whatever was still open that day, which is exactly what a player saw.
+  const before = deduce(training, config, targetGame, new Date(`${actual.draw_date}T12:00:00Z`));
   if (before.next.date !== actual.draw_date) return null; // schedule gap — nothing to compare
 
   const picks = before.trio.numbers;

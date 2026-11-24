@@ -7,7 +7,7 @@
  * or a caveat — never a formula.
  */
 import { GAME_WEEKDAY, GAMES } from '../types';
-import { formatDrawDate } from '../mathEngine';
+import { formatDrawDate, nextOpenDraw } from '../mathEngine';
 import { betTypes, coverage, linesForConfidence } from '../bets';
 import { isDrawPast, scorePickBook } from '../pickBook';
 import { collisionsDuringWalk, collisionsToMix, effectiveMixSeconds } from '../mixing';
@@ -139,8 +139,9 @@ function featureCard(opts: {
 }
 
 function gameChips(state: AppState): string {
-  const today = new Date().toISOString().slice(0, 10);
-  const todayGame = GAMES.find((g) => GAME_WEEKDAY[g] === new Date(`${today}T00:00:00Z`).getUTCDay());
+  // The hint follows the next draw a player can still stake on, so it rolls
+  // forward the moment tonight's result lands.
+  const nextGame = nextOpenDraw(state.draws).game;
   const items: Array<{ id: string; label: string }> = [
     { id: 'all', label: 'All games' },
     ...GAMES.map((g) => ({ id: g, label: g })),
@@ -152,7 +153,7 @@ function gameChips(state: AppState): string {
           (g) => `<button type="button" data-action="pick-game" data-game="${esc(g.id)}"
             class="chip${state.game === g.id ? ' chip-active' : ''}"
             aria-pressed="${state.game === g.id}">${esc(g.label)}${
-              g.id === todayGame ? '<span class="ml-1 text-amber-300">· today</span>' : ''
+              g.id === nextGame ? '<span class="ml-1 text-amber-300">· next</span>' : ''
             }</button>`
         )
         .join('')}

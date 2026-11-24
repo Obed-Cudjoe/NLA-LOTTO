@@ -50,7 +50,7 @@ export interface Env {
   ASSETS?: Fetcher;
 }
 
-const VERSION = '1.8.1';
+const VERSION = '1.9.0';
 const JSON_HEADERS = {
   'content-type': 'application/json; charset=utf-8',
   'cache-control': 'no-store',

@@ -142,6 +142,28 @@ Two consequences the app states plainly:
   for an expected return of about 30,500. It can win, and somebody does; the
   arithmetic of what "likely" costs is on the card.
 
+### The committed line (`src/pickBook.ts`)
+
+From 1.5.0 the Tonight page states, for every draw, three things and one timestamp:
+
+| Line | What it needs | Pays | Chance |
+|---|---|---|---|
+| **Perm 5 / Direct 5** | all five of the listed numbers among the five drawn, any order | 44,000× | 1 in 43,949,268 |
+| **2-Sure** | both numbers drawn | 240× | 1 in 401 |
+| **3-Direct** | all three numbers drawn | 2,100× | 1 in 11,748 |
+
+**Lock this line before the draw** stores the numbers with a timestamp in `localStorage`.
+Once the result is stored, every locked line is scored automatically against it — hits,
+draws, and the counts a fair drum predicts (0.28 numbers per line, one 2-Sure hit per 401
+lines, one 3-Direct hit per 11,748). The verdict is fixed in advance: under 20 resolved
+draws it says nothing; at 20+ it compares observed hits with those expectations and says
+where the book stands, including when it is below chance. CSV export carries the scoring
+columns so the arithmetic can be checked outside the app.
+
+The point is not that the line is lucky. It is that the line is **checkable**. A reader
+can see what was said, when, and what happened — which is the only claim this project
+makes about its own output.
+
 ### How long does the guest take to walk to the button?
 
 Two questions, and only one of them has a published answer.

@@ -3,6 +3,7 @@ import type {
 import type { OrderReport } from '../drawOrder';
 import type { MixingInput } from '../mixing';
 import type { JournalReport, TimingEntry } from '../timingJournal';
+import type { PickBookReport, PickRecord } from '../pickBook';
 
 export type Mode = 'worker' | 'static';
 /** A tab inside "the tool". */
@@ -70,6 +71,10 @@ export interface AppState {
   };
   /** Test of whether walk time predicts the first ball. */
   journalReport: JournalReport | null;
+  /** Lines locked before a draw, so the record can be scored honestly. */
+  pickBook: PickRecord[];
+  /** How those lines have actually done, versus chance. */
+  pickReport: PickBookReport;
   backtest: BacktestResult | null;
   backtestOpts: { minTrain: number; simulations: number };
   settings: Settings;

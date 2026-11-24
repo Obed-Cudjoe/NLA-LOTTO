@@ -9,8 +9,9 @@
 import { GAME_WEEKDAY, GAMES } from '../types';
 import { formatDrawDate } from '../mathEngine';
 import { betTypes, coverage, linesForConfidence } from '../bets';
+import { scorePickBook } from '../pickBook';
 import { collisionsDuringWalk, collisionsToMix, effectiveMixSeconds } from '../mixing';
-import { badge, balls, card, drawWhen, esc, pct, targetHeading } from './format';
+import { badge, balls, card, drawWhen, esc, pct, stat, targetHeading } from './format';
 import {
   renderBacktest,
   renderBusy,
@@ -391,6 +392,145 @@ export function renderHome(state: AppState): string {
  * Tonight
  * ------------------------------------------------------------------------ */
 
+/* --------------------------------------------------------------------------
+ * The committed line
+ *
+ * Five numbers for a perm, a 2-Sure pair, and the trio — plus the locking
+ * mechanism that makes the follow-up honest: whatever is picked is scored
+ * against the draw that actually happens, at the room's rate, not at a rate the
+ * model would like.
+ * ------------------------------------------------------------------------ */
+
+function lineCard(state: AppState): string {
+  const d = state.deduction;
+  if (!d) return '';
+  const bets = betTypes();
+  const perm = bets.find((b) => b.id === 'direct5');
+  const two = bets.find((b) => b.id === 'direct2');
+  const three = bets.find((b) => b.id === 'direct3');
+  const five = d.evidence.slice(0, 5).map((e) => e.number);
+  const pair = five.slice(0, 2);
+  const trio = d.trio.numbers.slice(0, 3);
+  const locked = state.pickBook.find(
+    (p) => p.draw_date === d.next.date && p.game.toLowerCase() === d.next.game.toLowerCase()
+  );
+
+  const row = (label: string, numbers: number[], big: boolean, bets: string[], note: string): string => `
+    <div class="rounded-xl border border-white/10 bg-black/20 p-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <span class="text-[10px] uppercase tracking-wide text-slate-400">${esc(label)}</span>
+        <span class="flex flex-wrap items-center gap-1.5">
+          ${numbers
+            .map((n) => `<span class="${big ? 'hero-ball' : 'ball ball-pick'}" style="${big ? '' : 'width:2.5rem;height:2.5rem;font-size:1rem'}">${n}</span>`)
+            .join('')}
+        </span>
+      </div>
+      <p class="mt-1.5 text-[11px] leading-snug text-slate-400">${bets.join(' · ')}</p>
+      <p class="text-[10px] leading-snug text-slate-500">${esc(note)}</p>
+    </div>`;
+
+  return card(`
+    <div class="flex flex-wrap items-start justify-between gap-2">
+      <div>
+        <h2 class="text-sm font-semibold text-slate-100">The line for this draw</h2>
+        <p class="text-[11px] text-slate-400">
+          ${esc(d.next.game)} · ${esc(formatDrawDate(d.next.date))} ·
+          built from ${n0(d.meta.drawsUsed)} stored draws of this game
+        </p>
+      </div>
+      ${badge(locked ? 'locked' : 'not locked yet', locked ? 'ok' : 'warn')}
+    </div>
+
+    <div class="mt-3 grid gap-2">
+      ${row('Perm 5 / Direct 5 — all five, any order', five, true, [
+        perm ? `pays ${perm.multiplier.toLocaleString()}×` : 'pays 44,000×',
+        perm ? `1 in ${n0(perm.oneIn)}` : '1 in 43,949,268',
+      ], 'Play it as a perm and every order of these five is covered. One winning line still returns less than it costs, on average.')}
+      ${row('2-Sure — both must be drawn', pair, false, [
+        two ? `pays ${two.multiplier.toLocaleString()}×` : 'pays 240×',
+        two ? `1 in ${n0(two.oneIn)}` : '1 in 401',
+      ], 'The least-bad ticket on the board: it returns about 0.60 per 1.00 staked, so it loses slowly rather than quickly.')}
+      ${row('3-Direct — all three must be drawn', trio, false, [
+        three ? `pays ${three.multiplier.toLocaleString()}×` : 'pays 2,100×',
+        three ? `1 in ${n0(three.oneIn)}` : '1 in 11,748',
+      ], 'A long shot, kept because it is the same three numbers the engine ranks highest.')}
+    </div>
+
+    <div class="mt-3 flex flex-wrap items-center gap-2">
+      <button type="button" data-action="lock-pick" class="btn btn-primary">
+        ${locked ? 'Re-lock this line' : 'Lock this line before the draw'}
+      </button>
+      <button type="button" data-action="export-picks" class="btn btn-ghost"
+        ${state.pickBook.length ? '' : 'disabled'}>Export the book (CSV)</button>
+      <button type="button" data-action="clear-picks" class="btn btn-ghost"
+        ${state.pickBook.length ? '' : 'disabled'}>Clear</button>
+    </div>
+    <p class="mt-2 text-[10px] leading-snug text-slate-500">
+      ${
+        locked
+          ? `Locked ${esc(new Date(locked.locked_at).toLocaleString('en-GB'))} — before the result, so the record cannot be rewritten afterwards.`
+          : 'Locking stores these numbers with a timestamp in this browser. It changes nothing about the odds; it just means the line is on record before the drum runs.'
+      }
+    </p>
+    <p class="mt-1 text-[10px] leading-snug text-slate-500">
+      These five are the numbers the model rates highest. On a fair drum they are exactly as likely as
+      any other five — the ranking is a reproducible guess, not an edge.
+    </p>
+  `);
+}
+
+function recordCard(state: AppState): string {
+  const rep = state.pickReport;
+  if (!rep.locked) return '';
+  const { rows } = scorePickBook(state.pickBook, state.draws);
+  const recent = [...rows].reverse().slice(0, 6);
+
+  return card(`
+    <div class="flex flex-wrap items-start justify-between gap-2">
+      <div>
+        <h2 class="text-sm font-semibold text-slate-100">The record</h2>
+        <p class="text-[11px] text-slate-400">
+          Every locked line, scored against what was drawn. Chance is the benchmark, not memory.
+        </p>
+      </div>
+      ${badge(`${rep.resolved}/${rep.locked} resolved`, rep.resolved ? 'info' : 'muted')}
+    </div>
+
+    <div class="mt-3 grid gap-3 sm:grid-cols-4">
+      ${stat('Lines locked', String(rep.locked), 'commitments made before the draw')}
+      ${stat('2-Sure hits', String(rep.pairHits), `${rep.expectedPairHits.toFixed(2)} expected by chance`)}
+      ${stat('3-Direct hits', String(rep.trioHits), `${rep.expectedTrioHits.toFixed(3)} expected`)}
+      ${stat('Numbers drawn', `${rep.matches}/${rep.resolved * 5}`, `${rep.expectedMatches.toFixed(1)} expected`)}
+    </div>
+
+    <p class="mt-3 rounded-lg border border-white/10 bg-black/20 p-2.5 text-[11px] leading-relaxed text-slate-200">
+      ${esc(rep.verdict)}
+    </p>
+
+    <div class="mt-2 overflow-x-auto">
+      <table class="w-full min-w-[520px] text-left text-[11px]">
+        <thead class="text-[10px] uppercase tracking-wide text-slate-500">
+          <tr><th class="py-1 pr-2">Draw</th><th class="py-1 pr-2">Five</th><th class="py-1 pr-2">Drawn</th>
+            <th class="py-1 pr-2">Hits</th><th class="py-1">2-Sure</th></tr>
+        </thead>
+        <tbody>
+          ${recent
+            .map(
+              (r) => `<tr class="border-t border-white/5">
+                <td class="py-1 pr-2 whitespace-nowrap text-slate-400">${esc(r.draw_date)}</td>
+                <td class="py-1 pr-2 whitespace-nowrap text-slate-300">${r.five.join(' · ')}</td>
+                <td class="py-1 pr-2 whitespace-nowrap text-slate-400">${r.drawn ? r.drawn.join(' · ') : '—'}</td>
+                <td class="py-1 pr-2 ${r.matches.length ? 'text-emerald-300' : 'text-slate-500'}">${r.matches.length}/5</td>
+                <td class="py-1">${r.drawn ? (r.pair_hit ? '<span class="text-emerald-300">hit</span>' : '<span class="text-slate-500">miss</span>') : '<span class="text-slate-500">pending</span>'}</td>
+              </tr>`
+            )
+            .join('')}
+        </tbody>
+      </table>
+    </div>
+  `);
+}
+
 export function renderTonight(state: AppState): string {
   return `
   <div class="mx-auto max-w-6xl px-4 pt-8">
@@ -411,6 +551,10 @@ export function renderTonight(state: AppState): string {
       <b class="text-slate-400">Show the maths</b>, or open
       <a href="#/tools" data-action="goto" data-page="tools" class="text-amber-300 hover:underline">the tool</a>.
     </p>
+  </div>
+  <div class="mx-auto mt-4 max-w-6xl space-y-3 px-4">
+    ${lineCard(state)}
+    ${recordCard(state)}
   </div>
   ${renderDeduction(state)}`;
 }

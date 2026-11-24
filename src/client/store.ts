@@ -1,6 +1,7 @@
 /** localStorage persistence + static-mode GitHub bridge. Browser only. */
 import { DEFAULT_CONFIG, normalizeHistory, type Draw, type EngineConfig } from '../mathEngine';
 import type { TimingEntry } from '../timingJournal';
+import type { PickRecord } from '../pickBook';
 import type { MixingInput } from '../mixing';
 import type { AppState, Settings } from './types';
 
@@ -11,6 +12,7 @@ const KEYS = {
   overlay: `${PREFIX}overlay`,
   ui: `${PREFIX}ui`,
   journal: `${PREFIX}journal`,
+  pickBook: `${PREFIX}pickBook`,
 } as const;
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -66,6 +68,10 @@ export interface UiPrefs {
 }
 export const loadJournal = (): TimingEntry[] => read<TimingEntry[]>(KEYS.journal, []);
 export const saveJournal = (entries: TimingEntry[]): void => write(KEYS.journal, entries);
+
+/** Lines this browser has committed to, scored once the draw is known. */
+export const loadPickBook = (): PickRecord[] => read<PickRecord[]>(KEYS.pickBook, []);
+export const savePickBook = (book: PickRecord[]): void => write(KEYS.pickBook, book);
 
 export const loadUi = (): Partial<UiPrefs> => read<Partial<UiPrefs>>(KEYS.ui, {});
 export const saveUi = (p: Partial<UiPrefs>): void => write(KEYS.ui, { ...loadUi(), ...p });

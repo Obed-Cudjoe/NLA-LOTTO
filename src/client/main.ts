@@ -20,6 +20,7 @@ import {
 import { DEFAULT_MIXING } from '../mixing';
 import { analyseTimingJournal, journalToCsv, type TimingEntry } from '../timingJournal';
 import { analyseDrawOrder } from '../drawOrder';
+import { emptyReport, lockPick, pickBookToCsv, pickFromDeduction, scorePickBook, type PickRecord } from '../pickBook';
 import { parsePayload } from '../scraper';
 import * as store from './store';
 import { destroyAllCharts, renderBacktestCharts } from './charts';
@@ -48,6 +49,8 @@ const state: AppState = {
   journal: store.loadJournal(),
   journalReport: null,
   stopwatch: { walkStart: null, walkSeconds: null, shakeStart: null, shakeSeconds: null },
+  pickBook: store.loadPickBook(),
+  pickReport: emptyReport(),
   backtest: null,
   backtestOpts: { minTrain: ui.minTrain ?? 25, simulations: ui.simulations ?? 300 },
   settings: store.loadSettings(),
@@ -228,6 +231,7 @@ function recompute(): void {
     state.review = null;
     state.order = null;
     state.orderAll = analyseDrawOrder(state.draws);
+    state.pickReport = scorePickBook(state.pickBook, state.draws).report;
     return;
   }
   const config: EngineConfig = {
@@ -240,6 +244,7 @@ function recompute(): void {
   // First-ball analysis is cheap enough to run on every recompute and is the
   // only honest test of the "machine timing matters" hypothesis.
   state.order = analyseDrawOrder(scoped);
+  state.pickReport = scorePickBook(state.pickBook, state.draws).report;
   // The method page reports the whole archive, not the selected game, so say
   // 60 draws rather than the 10 a single weekday happens to hold.
   state.orderAll = analyseDrawOrder(state.draws);
@@ -798,6 +803,40 @@ async function handleAction(action: string, el: HTMLElement): Promise<void> {
     case 'run-backtest':
       await runBacktest();
       break;
+    case 'lock-pick': {
+      if (!state.deduction) {
+        toast('No line to lock yet — the archive is still loading.', 'warn');
+        return;
+      }
+      const pick = pickFromDeduction(state.deduction);
+      state.pickBook = lockPick(state.pickBook, pick);
+      store.savePickBook(state.pickBook);
+      state.pickReport = scorePickBook(state.pickBook, state.draws).report;
+      render();
+      toast(
+        `Locked ${pick.five.join(' · ')} for ${pick.game} on ${pick.draw_date}. Scored automatically once the result is stored.`,
+        'ok'
+      );
+      break;
+    }
+    case 'export-picks': {
+      const { rows } = scorePickBook(state.pickBook, state.draws);
+      if (!rows.length) {
+        toast('Nothing in the book yet.', 'warn');
+        break;
+      }
+      store.downloadFile('nla-pick-book.csv', pickBookToCsv(rows), 'text/csv');
+      break;
+    }
+    case 'clear-picks': {
+      if (!window.confirm('Delete every locked line? The record cannot be rebuilt afterwards.')) break;
+      state.pickBook = [];
+      store.savePickBook([]);
+      state.pickReport = emptyReport();
+      render();
+      toast('Pick book cleared.', 'info');
+      break;
+    }
     case 'sw-tap': {
       const phase = el.dataset.phase === 'shake' ? 'shake' : 'walk';
       const now = performance.now();
@@ -1032,7 +1071,7 @@ async function boot(): Promise<void> {
   }
   try {
     state.mode = await detectMode();
-    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.4.0' };
+    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.5.0' };
     if (!state.settings.ghRepo.trim()) {
       const guess = repoGuess();
       if (guess) {

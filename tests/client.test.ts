@@ -488,4 +488,34 @@ describe('dashboard (static mode)', () => {
     await waitFor(() => state().journal.length === before + 1, 'timing logged from the stopwatch');
     expect(state().journal[state().journal.length - 1].walkSeconds).toBeCloseTo(walk, 1);
   });
+
+  it('locks the line for the draw and keeps a scoreable record of it', async () => {
+    await click('[data-action="goto"][data-page="tonight"]');
+    await waitFor(() => appText().includes('The line for this draw'), 'line card');
+
+    // The three bets the line is expressed as.
+    expect(appText()).toContain('Perm 5 / Direct 5');
+    expect(appText()).toContain('2-Sure');
+    expect(appText()).toContain('3-Direct');
+    expect(appText()).toContain('Lock this line before the draw');
+
+    await click('[data-action="lock-pick"]');
+    await waitFor(() => state().pickBook.length === 1, 'line locked');
+    const rec = state().pickBook[0];
+    expect(rec.five).toHaveLength(5);
+    expect(rec.pair).toEqual(rec.five.slice(0, 2));
+    expect(rec.trio).toHaveLength(3);
+    expect(rec.draw_date).toBe(state().deduction.next.date);
+    expect(Number.isNaN(Date.parse(rec.locked_at))).toBe(false);
+
+    // The record appears, with chance as the benchmark.
+    await waitFor(() => appText().includes('The record'), 'record card');
+    expect(appText()).toContain('Lines locked');
+    expect(appText()).toMatch(/expected by chance/);
+
+    // Re-locking replaces the commitment instead of piling up duplicates.
+    await click('[data-action="lock-pick"]');
+    await waitFor(() => appText().includes('Re-lock this line'), 're-lock affordance');
+    expect(state().pickBook.filter((p: { draw_date: string }) => p.draw_date === rec.draw_date)).toHaveLength(1);
+  });
 });

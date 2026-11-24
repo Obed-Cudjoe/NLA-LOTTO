@@ -1,5 +1,7 @@
 /** localStorage persistence + static-mode GitHub bridge. Browser only. */
 import { DEFAULT_CONFIG, normalizeHistory, type Draw, type EngineConfig } from '../mathEngine';
+import type { TimingEntry } from '../timingJournal';
+import type { MixingInput } from '../mixing';
 import type { AppState, Settings } from './types';
 
 const PREFIX = 'nla590:';
@@ -8,6 +10,7 @@ const KEYS = {
   config: `${PREFIX}config`,
   overlay: `${PREFIX}overlay`,
   ui: `${PREFIX}ui`,
+  journal: `${PREFIX}journal`,
 } as const;
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -59,8 +62,11 @@ export interface UiPrefs {
   minTrain: number;
   simulations: number;
   /** Drum-timing simulator inputs (see src/mixing.ts). */
-  lab?: { shakeSeconds: number; interReleaseSeconds: number; tau: number; loadingKnown: boolean };
+  lab?: Partial<MixingInput>;
 }
+export const loadJournal = (): TimingEntry[] => read<TimingEntry[]>(KEYS.journal, []);
+export const saveJournal = (entries: TimingEntry[]): void => write(KEYS.journal, entries);
+
 export const loadUi = (): Partial<UiPrefs> => read<Partial<UiPrefs>>(KEYS.ui, {});
 export const saveUi = (p: Partial<UiPrefs>): void => write(KEYS.ui, { ...loadUi(), ...p });
 

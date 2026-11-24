@@ -31,6 +31,19 @@ const N = 90;
 export interface MixingInput {
   /** Seconds the drum is shaken before the first release (host procedure). */
   shakeSeconds: number;
+  /**
+   * Seconds the invited guest takes to walk from their seat to the button.
+   * Time on the clock — the only question is whether the drum is running.
+   */
+  walkSeconds: number;
+  /**
+   * Whether the drum keeps mixing while the guest walks. If it runs, the walk
+   * is free extra mixing; if it is stopped, identical balls settle under
+   * gravity symmetrically and nothing new becomes observable either way.
+   */
+  drumRunsDuringWalk: boolean;
+  /** Ball-to-ball collisions per second while the drum runs (order of magnitude). */
+  collisionsPerSecond: number;
   /** Seconds between releases — the drum normally keeps running. */
   interReleaseSeconds: number;
   /**
@@ -46,10 +59,36 @@ export interface MixingInput {
 export const DEFAULT_MIXING: MixingInput = {
   // NLA hosts shake well beyond this; the default is a deliberately harsh test.
   shakeSeconds: 5,
+  // A guest walking from the audience to the button: seconds, not minutes.
+  walkSeconds: 12,
+  drumRunsDuringWalk: true,
+  collisionsPerSecond: 10,
   interReleaseSeconds: 8,
   tau: 0.7,
   loadingKnown: true,
 };
+
+/**
+ * Total mixing time before the first ball is released. If the drum runs while
+ * the guest walks — which witnesses can see on the feed — that walk is added
+ * mixing, never a source of information about *which* ball is where.
+ */
+export function effectiveMixSeconds(input: Partial<MixingInput> = {}): number {
+  const cfg = { ...DEFAULT_MIXING, ...input };
+  return cfg.shakeSeconds + (cfg.drumRunsDuringWalk ? Math.max(0, cfg.walkSeconds) : 0);
+}
+
+/** Ball-to-ball collisions each ball experiences while the drum runs. */
+export function collisionsDuringWalk(input: Partial<MixingInput> = {}): number {
+  const cfg = { ...DEFAULT_MIXING, ...input };
+  return cfg.drumRunsDuringWalk ? Math.max(0, cfg.walkSeconds) * cfg.collisionsPerSecond : 0;
+}
+
+/** Collisions needed to reach full mixing at the given time constant. */
+export function collisionsToMix(input: Partial<MixingInput> = {}): number {
+  const cfg = { ...DEFAULT_MIXING, ...input };
+  return cfg.tau * cfg.collisionsPerSecond;
+}
 
 /** Probability that a ball has been displaced from its loading slot. */
 export function mixQuality(seconds: number, tau: number): number {
@@ -71,8 +110,9 @@ export function firstBallProbability(input: Partial<MixingInput> = {}): {
   uniform: number;
   quality: number;
 } {
-  const { shakeSeconds, tau, loadingKnown } = { ...DEFAULT_MIXING, ...input };
-  const q = mixQuality(shakeSeconds, tau);
+  const cfg = { ...DEFAULT_MIXING, ...input };
+  const { tau, loadingKnown } = cfg;
+  const q = mixQuality(effectiveMixSeconds(cfg), tau);
   const uniform = 1 / N;
   if (!loadingKnown) return { favoured: uniform, ordinary: uniform, uniform, quality: q };
   // The exit slot keeps its ball with probability 1-q; otherwise any ball can
@@ -110,9 +150,11 @@ export function breakEvenShakeSeconds(tau = DEFAULT_MIXING.tau, multiplier = 40)
 
 /** Mixing quality achieved for each of the five releases. */
 export function qualityPerRelease(input: Partial<MixingInput> = {}): number[] {
-  const { shakeSeconds, interReleaseSeconds, tau } = { ...DEFAULT_MIXING, ...input };
+  const cfg = { ...DEFAULT_MIXING, ...input };
+  const { interReleaseSeconds, tau } = cfg;
+  const first = effectiveMixSeconds(cfg);
   return Array.from({ length: 5 }, (_, k) =>
-    mixQuality(shakeSeconds + k * Math.max(0, interReleaseSeconds), tau)
+    mixQuality(first + k * Math.max(0, interReleaseSeconds), tau)
   );
 }
 
@@ -156,7 +198,7 @@ export function mixingVerdict(input: Partial<MixingInput> = {}): string {
     return `Without knowing the loading order every ball is exactly 1 in 90 whatever the timing, so Direct 1 returns ${pct(40 / 90)} of stake. The shake time changes nothing you can observe.`;
   }
   if (ev >= 1) {
-    return `At ${cfg.shakeSeconds}s of shaking the drum is still under-mixed (${pct(quality)} displaced): a known favoured ball would win Direct 1 ${pct(favoured)} of the time and return ${ev.toFixed(2)} per 1.00 staked. Break-even starts at about ${breakEven.toFixed(1)}s — but this requires a loading order you cannot see.`;
+    return `At ${cfg.shakeSeconds}s of shaking${cfg.drumRunsDuringWalk ? ` plus a ${cfg.walkSeconds}s walk` : ''} the drum is still under-mixed (${pct(quality)} displaced): a known favoured ball would win Direct 1 ${pct(favoured)} of the time and return ${ev.toFixed(2)} per 1.00 staked. Break-even starts at about ${breakEven.toFixed(1)}s — but this requires a loading order you cannot see.`;
   }
-  return `At ${cfg.shakeSeconds}s of shaking the drum is ${pct(quality)} mixed, leaving the favoured ball at ${pct(favoured)} — Direct 1 would still return only ${ev.toFixed(2)} per 1.00. It needs under ${breakEven.toFixed(1)}s of shaking to become beatable, and even then only with a known loading order.`;
+  return `With ${cfg.shakeSeconds}s of shaking${cfg.drumRunsDuringWalk ? ` and ${cfg.walkSeconds}s of the guest walking` : ''} the drum is ${pct(quality)} mixed, leaving the favoured ball at ${pct(favoured)} — Direct 1 would still return only ${ev.toFixed(2)} per 1.00. It needs under ${breakEven.toFixed(1)}s of shaking to become beatable, and even then only with a known loading order.`;
 }

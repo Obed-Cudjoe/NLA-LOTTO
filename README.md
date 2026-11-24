@@ -157,6 +157,28 @@ beatable — and even then only with a known loading order. Set the toggle to
 "sealed drum" and the edge vanishes identically: every ball is 1 in 90 whatever
 the timing.
 
+*What about the invited guest who presses the button?* This is the same physics
+with a human in the loop. While the guest walks to the button the drum keeps
+running, so the walk is free extra mixing: at ~10 ball-ball collisions per
+second, a 12-second walk strikes every ball about 120 times — roughly 17× the
+mixing the drum needs to reach uniformity. More walking therefore makes the
+draw *more* uniform, never more readable. If the drum is stopped instead,
+identical, weight-controlled balls settle symmetrically: the arrangement is
+whatever it already was, nothing new becomes observable, and it is behind sealed
+glass either way.
+
+The app models both cases with a walk-time slider and a "drum during the walk"
+toggle, and counts collisions rather than asking you to take it on trust.
+
+*And if you still want to test it?* Use the **timing journal** in the Draw lab:
+log each draw's walk seconds, shake seconds and first ball (record the timings
+**before** the numbers appear), then the app runs a chi-square test of
+independence between walk-time tercile and first-ball decile, with a
+deterministic Monte-Carlo p-value and Cramér's V as the effect size. It refuses
+to flatter small samples: below 60 entries it reports "inconclusive by design",
+and it recommends 300+ before a negative result means anything. Entries live in
+`localStorage` and export to CSV.
+
 *The empirical check.* Because Direct 1 depends on the first ball, the archive
 is tested directly: a chi-square on the first-ball distribution against
 uniform(90), with a deterministic Monte-Carlo p-value. On the current 60 draws,

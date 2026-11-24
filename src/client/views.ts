@@ -39,8 +39,10 @@ import { betTypes, coverage, linesForConfidence } from '../bets';
 import {
   bestDirect1Ev,
   breakEvenShakeSeconds,
+  collisionsDuringWalk,
+  collisionsToMix,
+  effectiveMixSeconds,
   firstBallProbability,
-  mixQuality,
   mixingVerdict,
   qualityPerRelease,
 } from '../mixing';
@@ -732,6 +734,27 @@ export function renderDeduction(state: AppState): string {
  * Draw lab — what each bet returns, and whether the machine can be read
  * ========================================================================== */
 
+/** Rows for the timing journal table, newest first. */
+function journalRows(entries: AppState['journal']): string {
+  if (!entries.length) {
+    return '<tr><td colspan="5" class="py-2 text-slate-500">Nothing logged yet.</td></tr>';
+  }
+  return [...entries]
+    .reverse()
+    .slice(0, 12)
+    .map(
+      (e) =>
+        '<tr class="border-t border-white/5">' +
+        `<td class="py-1 pr-2 text-slate-400">${esc(e.draw_date)}</td>` +
+        `<td class="py-1 pr-2 text-slate-200">${e.walkSeconds}s</td>` +
+        `<td class="py-1 pr-2 text-slate-400">${e.shakeSeconds}s</td>` +
+        `<td class="py-1 pr-2 font-semibold text-amber-300">${e.firstBall}</td>` +
+        `<td class="py-1 text-[10px] text-slate-500">${esc(e.game ?? '—')}</td>` +
+        '</tr>'
+    )
+    .join('');
+}
+
 export function renderLab(state: AppState): string {
   const bets = betTypes();
   const best = bets[0];
@@ -891,6 +914,122 @@ export function renderLab(state: AppState): string {
         that displacement is all-or-nothing. Real air-mix drums mix faster than τ, the ball set is
         loaded behind a sealed door, and NLA draws at 8:30pm GMT Monday–Saturday (7:30pm Sunday).
       </p>
+    `)}
+
+    ${card(`
+      <div class="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 class="text-sm font-semibold text-slate-100">The guest who presses the button</h2>
+          <p class="text-[11px] text-slate-400">
+            An invited spectator walks from the audience to the release button. The clock runs —
+            the question is what the drum is doing while they walk.
+          </p>
+        </div>
+        ${badge(`walk adds ${m.drumRunsDuringWalk ? `${collisionsDuringWalk(m).toLocaleString()} collisions per ball` : 'nothing'}`, m.drumRunsDuringWalk ? 'info' : 'muted')}
+      </div>
+
+      <div class="mt-3 grid gap-3 sm:grid-cols-2">
+        <label class="field"><span>Guest walk to the button <b class="text-amber-300">${m.walkSeconds}s</b></span>
+          <input id="lab-walk" type="range" min="0" max="60" step="1" value="${m.walkSeconds}" /></label>
+        <button type="button" data-action="toggle-drum-walk"
+          class="field text-left ${m.drumRunsDuringWalk ? 'border-sky-400/30 bg-sky-400/10 text-sky-200' : 'text-slate-400'}">
+          <span>Drum during the walk</span>
+          <span class="text-[11px]">${m.drumRunsDuringWalk ? '☑ keeps running (extra mixing)' : '☐ stopped (balls at rest)'}</span>
+        </button>
+      </div>
+
+      <div class="mt-3 grid gap-3 sm:grid-cols-3">
+        ${stat('Mixing before the first press', `${effectiveMixSeconds(m).toFixed(0)}s`, 'shake + walk while the drum runs')}
+        ${stat('Collisions per ball', collisionsDuringWalk(m).toLocaleString(), `${m.collisionsPerSecond}/s while the drum runs`)}
+        ${stat('Collisions needed to mix', collisionsToMix(m).toFixed(0), `τ ${m.tau.toFixed(2)}s`)}
+      </div>
+
+      <p class="mt-3 rounded-lg border border-white/10 bg-black/20 p-2.5 text-[11px] leading-relaxed text-slate-200">
+        ${
+          m.drumRunsDuringWalk
+            ? `While the guest walks, every ball is being struck about ${collisionsDuringWalk(m).toLocaleString()} times — roughly ${(
+                collisionsDuringWalk(m) / Math.max(1, collisionsToMix(m))
+              ).toFixed(0)}× more mixing than the drum needs. A longer walk therefore makes the draw <b>more</b> uniform, not more readable: the walk can only add entropy, never a hint about which ball is where.`
+            : `With the drum stopped, identical weight-controlled balls settle under gravity into whatever arrangement they already had — a symmetric process with no preference for any number. Nothing new becomes observable, and the arrangement is behind sealed glass either way.`
+        }
+      </p>
+      <p class="mt-2 text-[10px] leading-snug text-slate-500">
+        Why the walk <i>feels</i> predictive: it is a human, memorable step with a clear cause and
+        effect, sitting right next to a random outcome. The drum is the randomiser; the guest is a
+        switch. Psychologists call the false link between them illusory correlation — the app tests
+        for it below rather than asking you to take that on trust.
+      </p>
+    `)}
+
+    ${card(`
+      <div class="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 class="text-sm font-semibold text-slate-100">Timing journal — test it on your own observations</h2>
+          <p class="text-[11px] text-slate-400">
+            No public source publishes guest walk times, so the only honest way to test your idea is
+            to log them yourself and let the test decide. Saved in this browser; export to CSV any time.
+          </p>
+        </div>
+        ${badge(`${state.journal.length} logged`, state.journal.length >= 60 ? 'info' : 'muted')}
+      </div>
+
+      <div class="mt-3 grid gap-2 sm:grid-cols-4">
+        <label class="field"><span>Draw date</span>
+          <input id="j-date" type="date" value="${new Date().toISOString().slice(0, 10)}" /></label>
+        <label class="field"><span>Walk (seconds)</span>
+          <input id="j-walk" type="number" min="0" max="600" step="1" placeholder="12" /></label>
+        <label class="field"><span>Shake (seconds)</span>
+          <input id="j-shake" type="number" min="0" max="600" step="1" placeholder="5" /></label>
+        <label class="field"><span>First ball drawn</span>
+          <input id="j-first" type="number" min="1" max="90" step="1" placeholder="34" /></label>
+      </div>
+      <div class="mt-2 grid gap-2 sm:grid-cols-3">
+        <button type="button" data-action="journal-add" class="btn btn-primary">Log this timing</button>
+        <button type="button" data-action="journal-export" class="btn btn-ghost" ${state.journal.length ? '' : 'disabled'}>Export CSV</button>
+        <button type="button" data-action="journal-clear" class="btn btn-ghost" ${state.journal.length ? '' : 'disabled'}>Clear journal</button>
+      </div>
+
+      ${
+        state.journalReport && state.journalReport.entries >= 8
+          ? `
+      <div class="mt-3 grid gap-3 sm:grid-cols-3">
+        ${stat('Entries', String(state.journalReport.entries), 'independent draws')}
+        ${stat('p-value', state.journalReport.pValue < 0.01 ? state.journalReport.pValue.toExponential(1) : num(state.journalReport.pValue, 3), 'Monte-Carlo, timing-independent null')}
+        ${stat("Cramér's V", num(state.journalReport.cramersV, 2), '0 = no association')}
+      </div>
+      <div class="mt-2 overflow-x-auto">
+        <table class="w-full min-w-[420px] text-left text-[11px]">
+          <thead class="text-[10px] uppercase tracking-wide text-slate-500">
+            <tr><th class="py-1 pr-2">Walk band</th><th class="py-1 pr-2">Range</th><th class="py-1 pr-2">Draws</th><th class="py-1">Mean first ball</th></tr>
+          </thead>
+          <tbody>
+            ${state.journalReport.byTercile
+              .map(
+                (b) =>
+                  `<tr class="border-t border-white/5"><td class="py-1 pr-2 text-slate-200">${esc(b.label)}</td>` +
+                  `<td class="py-1 pr-2 text-slate-400">${b.from.toFixed(0)}–${
+                    Number.isFinite(b.to) ? b.to.toFixed(0) : '+'
+                  }s</td>` +
+                  `<td class="py-1 pr-2 text-slate-300">${b.draws}</td>` +
+                  `<td class="py-1 text-slate-300">${num(b.meanFirstBall, 1)}</td></tr>`
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+      <p class="mt-2 rounded-lg border border-white/10 bg-black/20 p-2.5 text-[11px] leading-relaxed text-slate-200">${esc(state.journalReport.verdict)}</p>
+      <p class="mt-1 text-[10px] leading-snug text-slate-500">${esc(state.journalReport.guidance)}</p>`
+          : `<p class="mt-3 text-[11px] text-slate-400">Log at least 8 timings to run the test. Record walk seconds <b>before</b> the numbers appear — logging afterwards biases everything.</p>`
+      }
+
+      <div class="mt-3 overflow-x-auto">
+        <table class="w-full min-w-[420px] text-left text-[11px]">
+          <thead class="text-[10px] uppercase tracking-wide text-slate-500">
+            <tr><th class="py-1 pr-2">Date</th><th class="py-1 pr-2">Walk</th><th class="py-1 pr-2">Shake</th><th class="py-1 pr-2">First ball</th><th class="py-1">Game</th></tr>
+          </thead>
+          <tbody>${journalRows(state.journal)}</tbody>
+        </table>
+      </div>
     `)}
 
     ${card(`

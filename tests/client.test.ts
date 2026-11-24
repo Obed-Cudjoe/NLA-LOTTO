@@ -224,6 +224,46 @@ describe('dashboard (static mode)', () => {
     await click('[data-action="toggle-loading-known"]');
   });
 
+  it('models the guest walking to the button — as mixing, not as a signal', async () => {
+    await click('[data-action="tab"][data-tab="lab"]');
+    await waitFor(() => appText().includes('The guest who presses the button'), 'guest card');
+    expect(appText()).toContain('Collisions per ball');
+    expect(state().lab.walkSeconds).toBeGreaterThan(0);
+
+    const slider = document.getElementById('lab-walk') as HTMLInputElement;
+    slider.value = '40';
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+    await waitFor(() => state().lab.walkSeconds === 40, 'walk slider persisted');
+    // More walking means more mixing, and the copy says so.
+    expect(appText()).toMatch(/more mixing than the drum needs/i);
+
+    // With the drum stopped, the walk changes nothing at all.
+    await click('[data-action="toggle-drum-walk"]');
+    await waitFor(() => !state().lab.drumRunsDuringWalk, 'drum stopped');
+    expect(appText()).toMatch(/nothing new becomes observable/i);
+    await click('[data-action="toggle-drum-walk"]');
+  });
+
+  it('logs timings and runs the journal test on them', async () => {
+    await click('[data-action="tab"][data-tab="lab"]');
+    await waitFor(() => Boolean(document.getElementById('j-walk')), 'journal form');
+
+    for (let i = 1; i <= 10; i++) {
+      (document.getElementById('j-date') as HTMLInputElement).value = `2026-10-${String(i).padStart(2, '0')}`;
+      (document.getElementById('j-walk') as HTMLInputElement).value = String(6 + (i % 7));
+      (document.getElementById('j-shake') as HTMLInputElement).value = '5';
+      (document.getElementById('j-first') as HTMLInputElement).value = String(1 + i * 7);
+      await click('[data-action="journal-add"]');
+    }
+    await waitFor(() => state().journal.length === 10, 'ten timings logged');
+    expect(state().journalReport).toBeTruthy();
+    expect(state().journalReport.entries).toBe(10);
+    await waitFor(() => appText().includes("Cramér's V"), 'journal test rendered');
+    expect(appText()).toMatch(/Inconclusive by design|No detectable link/i);
+    // The summary table reflects the logged rows.
+    expect(appText()).toContain('Mean first ball');
+  });
+
   it('labels the refresh control honestly on a static host', async () => {
     await click('[data-action="tab"][data-tab="deduce"]');
     await waitFor(() => appText().includes('Refresh via GitHub'), 'static refresh label');

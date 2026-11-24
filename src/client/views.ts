@@ -35,11 +35,21 @@ import {
   zTone,
   zWidth,
 } from './format';
+import { betTypes, coverage, linesForConfidence } from '../bets';
+import {
+  bestDirect1Ev,
+  breakEvenShakeSeconds,
+  firstBallProbability,
+  mixQuality,
+  mixingVerdict,
+  qualityPerRelease,
+} from '../mixing';
 import { guessRepo, workflowUrl } from './store';
 import type { AppState, View } from './types';
 
 const TABS: Array<{ id: View; label: string; icon: string }> = [
   { id: 'deduce', label: 'Deduction', icon: '◎' },
+  { id: 'lab', label: 'Draw lab', icon: '⚗' },
   { id: 'backtest', label: 'Backtester', icon: '⟲' },
   { id: 'ledger', label: 'Ledger', icon: '☰' },
   { id: 'settings', label: 'Data', icon: '⚙' },
@@ -144,7 +154,7 @@ export function renderControls(state: AppState): string {
         </div>
         <button type="button" data-action="toggle-advanced" class="field justify-end text-left">
           <span>Model</span>
-          <span class="text-xs text-amber-300">${state.advanced ? 'Hide advanced ▲' : 'Advanced options ▼'}</span>
+          <span class="text-xs text-amber-300">${state.advanced ? 'Hide the maths ▲' : 'Show the maths ▼'}</span>
         </button>
         <button type="button" data-action="tab" data-tab="backtest" class="field justify-end text-left">
           <span>Validate</span>
@@ -233,8 +243,19 @@ function pillarRow(label: string, z: number, contribution: number): string {
     </div>`;
 }
 
-function pickCard(e: NumberEvidence, rank: number): string {
+function pickCard(e: NumberEvidence, rank: number, showMaths = true): string {
   const rings = ['ring-amber-400/60', 'ring-slate-300/40', 'ring-amber-700/50'];
+  if (!showMaths) {
+    return `
+  <div class="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.02] p-4 shadow-lg ring-1 ${rings[rank - 1] ?? 'ring-white/10'}">
+    <div class="flex items-start justify-between">
+      <span class="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Pick ${rank}</span>
+      <span class="rounded-full bg-black/40 px-2 py-0.5 text-[10px] font-medium text-slate-400">rank ${e.rank} of 90</span>
+    </div>
+    <div class="my-3 flex items-center justify-center"><span class="pick-ball">${e.number}</span></div>
+    <p class="text-[11px] leading-snug text-slate-300">${esc(e.plain.overall)}</p>
+  </div>`;
+  }
   return `
   <div class="relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.02] p-4 shadow-lg ring-1 ${rings[rank - 1] ?? 'ring-white/10'}">
     <div class="flex items-start justify-between">
@@ -359,6 +380,42 @@ function auditCard(d: Deduction): string {
       <div>Passing filters <b class="text-slate-200">${d.meta.validCombos}</b></div>
     </div>
     <span class="hidden">${minPos}</span>
+  `);
+}
+
+/** The "full five-number line" — what coverage actually buys. */
+function fiveLineCard(state: AppState): string {
+  const d = state.deduction;
+  if (!d) return '';
+  const five = d.evidence.slice(0, 5).map((e) => e.number);
+  const direct5 = betTypes().find((b) => b.id === 'direct5')!;
+  const half = coverage({ betId: 'direct5', lines: linesForConfidence('direct5', 0.5), stakePerLine: 1 });
+
+  return card(`
+    <div class="flex flex-wrap items-start justify-between gap-2">
+      <h2 class="text-sm font-semibold text-slate-100">The full five-number line</h2>
+      ${badge('Direct 5', 'info')}
+    </div>
+    <div class="mt-2 flex flex-wrap gap-1.5">${balls(five)}</div>
+    <div class="mt-3 grid gap-3 sm:grid-cols-3">
+      ${stat('Chance one line wins', tinyPct(direct5.probability), `1 in ${Math.round(direct5.oneIn).toLocaleString()}`)}
+      ${stat('Pays', `${direct5.multiplier.toLocaleString()}×`, 'on every unit staked')}
+      ${stat('Average return', `${(direct5.ev * 100).toFixed(2)}%`, 'of everything you stake')}
+    </div>
+    <p class="mt-3 text-[11px] leading-relaxed text-slate-300">
+      Yes — it can win. Somebody does, occasionally, and the five numbers above are as good a line as
+      any other. But look at what "likely" costs: to reach a 50% chance you would need about
+      <b>${Math.round(half.lines).toLocaleString()}</b> lines. At 1 unit per line that is
+      <b>${Math.round(half.totalStake).toLocaleString()}</b> units staked for a prize of
+      <b>${direct5.multiplier.toLocaleString()}</b> units — and the expected return on that pile is
+      <b>${Math.round(half.expectedReturnValue).toLocaleString()}</b> units. Coverage multiplies the
+      stake and the drama; it does not multiply the edge.
+    </p>
+    <p class="mt-2 text-[11px] leading-relaxed text-slate-400">
+      If you are going to play at all, the Draw lab shows which ticket loses least per cedi.
+      Direct 2 returns around ${Math.round(betTypes()[0].ev * 100)}%; Direct 5 returns
+      ${(direct5.ev * 100).toFixed(2)}%.
+    </p>
   `);
 }
 
@@ -639,11 +696,11 @@ export function renderDeduction(state: AppState): string {
 
     <div class="grid gap-4 lg:grid-cols-3">
       <div class="grid gap-3 sm:grid-cols-3 lg:col-span-2">
-        ${d.top.map((e, i) => pickCard(e, i + 1)).join('')}
+        ${d.top.map((e, i) => pickCard(e, i + 1, state.advanced)).join('')}
       </div>
       <div class="space-y-3">
         ${auditCard(d)}
-        ${metaCard(d)}
+        ${state.advanced ? metaCard(d) : ''}
       </div>
     </div>
 
@@ -655,7 +712,11 @@ export function renderDeduction(state: AppState): string {
       <div class="space-y-3">${alternativesCard(d)}</div>
     </div>
 
-    ${rankingTable(d)}
+    ${fiveLineCard(state)}
+
+    ${state.advanced
+      ? rankingTable(d)
+      : `<p class="px-1 text-[11px] text-slate-500">The scoring detail — z-scores, pillar contributions, the full 90-number ranking — is hidden to keep this readable. <button type="button" data-action="toggle-advanced" class="text-amber-300 underline decoration-dotted">Show the maths</button>.</p>`}
 
     <div class="rounded-xl border border-amber-400/20 bg-amber-400/5 p-3 text-[11px] leading-relaxed text-amber-100/80">
       <b class="text-amber-200">Read this before staking anything.</b>
@@ -664,6 +725,189 @@ export function renderDeduction(state: AppState): string {
       not a forecast. The Backtester tab measures whether the hypothesis actually beat chance on your
       own history; check it before you trust it.
     </div>
+  </div>`;
+}
+
+/* ==========================================================================
+ * Draw lab — what each bet returns, and whether the machine can be read
+ * ========================================================================== */
+
+export function renderLab(state: AppState): string {
+  const bets = betTypes();
+  const best = bets[0];
+  const worst = bets[bets.length - 1];
+  const maxEv = Math.max(...bets.map((b) => b.ev));
+
+  const m = state.lab;
+  const p = firstBallProbability(m);
+  const ev = bestDirect1Ev(m);
+  const breakEven = breakEvenShakeSeconds(m.tau);
+  const qualities = qualityPerRelease(m);
+  const verdict = mixingVerdict(m);
+  const order = state.order;
+
+  return `
+  <div class="mx-auto max-w-7xl space-y-4 px-4 py-4">
+
+    ${card(`
+      <h2 class="text-sm font-semibold text-slate-100">The only two questions that change anything</h2>
+      <p class="mt-1 text-[11px] leading-relaxed text-slate-400">
+        Which ticket loses the least money per cedi — and can the drum's timing be read? Both have
+        numerical answers, so this tab gives them rather than opinions. Every figure is exact
+        combinatorics or an explicit model, never a guess.
+      </p>
+    `)}
+
+    ${card(`
+      <div class="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 class="text-sm font-semibold text-slate-100">What each NLA bet actually returns</h2>
+          <p class="text-[11px] text-slate-400">Published multiplier × exact probability. 100% = break even.</p>
+        </div>
+        ${badge(`best: ${best.label} at ${(best.ev * 100).toFixed(0)}%`, 'ok')}
+      </div>
+      <div class="mt-3 space-y-2">
+        ${bets
+          .map(
+            (b) => `
+          <div class="rounded-lg border border-white/10 bg-black/20 p-2.5">
+            <div class="flex items-center justify-between gap-2 text-[11px]">
+              <span class="font-semibold text-slate-100">${esc(b.label)}</span>
+              <span class="text-slate-400">${b.multiplier.toLocaleString()}× · 1 in ${Math.round(b.oneIn).toLocaleString()}</span>
+              <span class="${b.ev > 0.5 ? 'text-lime-300' : b.ev > 0.1 ? 'text-amber-300' : 'text-rose-300'} font-semibold">${(b.ev * 100).toFixed(1)}%</span>
+            </div>
+            <div class="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-white/5">
+              <div class="h-full rounded-full ${b.ev > 0.5 ? 'bg-lime-400/70' : b.ev > 0.1 ? 'bg-amber-400/70' : 'bg-rose-400/70'}"
+                   style="width:${Math.max(1, (b.ev / maxEv) * 100).toFixed(1)}%"></div>
+            </div>
+            <p class="mt-1 text-[10px] leading-snug text-slate-500">${esc(b.note)}</p>
+          </div>`
+          )
+          .join('')}
+      </div>
+      <p class="mt-3 border-t border-white/5 pt-2 text-[11px] leading-relaxed text-slate-300">
+        Every ticket is a losing proposition; the only question is how fast. ${esc(best.label)} gives
+        back about <b>${(best.ev * 100).toFixed(0)}%</b> of stake, while ${esc(worst.label)} gives back
+        <b>${(worst.ev * 100).toFixed(2)}%</b>. If you play, play the top line of this table and stake
+        a fixed small amount.
+      </p>
+    `)}
+
+    ${card(`
+      <h2 class="text-sm font-semibold text-slate-100">Is the first ball biased?</h2>
+      <p class="text-[11px] text-slate-400">
+        Direct 1 pays only when your number is the first ball drawn, so that is the one quantity a
+        timing theory would have to move. Tested on your archive, not assumed.
+      </p>
+      ${
+        order && order.draws
+          ? `
+      <div class="mt-3 grid gap-3 sm:grid-cols-3">
+        ${stat('Draws tested', String(order.draws), 'first ball of each draw')}
+        ${stat('Chi-square', num(order.chiSquare, 1), `df = ${order.df}`)}
+        ${stat('p-value', order.pValue < 0.01 ? order.pValue.toExponential(1) : num(order.pValue, 3), 'Monte-Carlo null')}
+      </div>
+      <p class="mt-3 rounded-lg border border-white/10 bg-black/20 p-2.5 text-[11px] leading-relaxed text-slate-200">
+        ${esc(order.verdict)}
+      </p>
+      <div class="mt-2 grid gap-2 sm:grid-cols-2 text-[11px]">
+        <div>
+          <p class="text-[10px] uppercase tracking-wide text-slate-500">Drawn first most often</p>
+          <div class="mt-1 flex flex-wrap gap-1">${order.hottest
+            .map((h) => `${ball(h.number, 'quiet', true)}<span class="mr-2 text-[10px] text-slate-400">${h.count}×</span>`)
+            .join('')}</div>
+        </div>
+        <div>
+          <p class="text-[10px] uppercase tracking-wide text-slate-500">Never / least often</p>
+          <div class="mt-1 flex flex-wrap gap-1">${order.coldest
+            .map((h) => `${ball(h.number, 'quiet', true)}<span class="mr-2 text-[10px] text-slate-400">${h.count}×</span>`)
+            .join('')}</div>
+        </div>
+      </div>
+      <p class="mt-2 text-[10px] leading-snug text-slate-500">${esc(order.caveat)}</p>`
+          : `<p class="mt-2 text-[11px] text-slate-400">Load some draws to run the test.</p>`
+      }
+    `)}
+
+    ${card(`
+      <div class="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 class="text-sm font-semibold text-slate-100">Drum timing simulator</h2>
+          <p class="text-[11px] text-slate-400">
+            How long the drum shakes, and the pause before each button press, decide whether any
+            positional bias can survive — and whether a known loading order would be worth anything.
+          </p>
+        </div>
+        ${badge(`Direct 1 → ${ev.toFixed(2)} per 1.00`, ev >= 1 ? 'ok' : 'muted')}
+      </div>
+
+      <div class="mt-3 grid gap-3 sm:grid-cols-3">
+        <label class="field"><span>Shake before first release <b class="text-amber-300">${m.shakeSeconds.toFixed(1)}s</b></span>
+          <input id="lab-shake" type="range" min="0.2" max="10" step="0.2" value="${m.shakeSeconds}" /></label>
+        <label class="field"><span>Pause between button presses <b class="text-amber-300">${m.interReleaseSeconds.toFixed(0)}s</b></span>
+          <input id="lab-interval" type="range" min="1" max="30" step="1" value="${m.interReleaseSeconds}" /></label>
+        <label class="field"><span>Mixing time constant τ <b class="text-amber-300">${m.tau.toFixed(2)}s</b></span>
+          <input id="lab-tau" type="range" min="0.2" max="2" step="0.05" value="${m.tau}" /></label>
+      </div>
+
+      <button type="button" data-action="toggle-loading-known"
+        class="mt-2 w-full rounded-lg border px-3 py-2 text-left text-[11px] ${
+          m.loadingKnown ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200' : 'border-white/10 bg-black/20 text-slate-400'
+        }">
+        ${m.loadingKnown ? '☑ assuming you know which ball sits in the exit slot' : '☐ assuming a sealed drum (you do not know the loading order)'}
+        <span class="block text-[10px] text-slate-500">Click to switch. Without the loading order, no timing can help you.</span>
+      </button>
+
+      <div class="mt-3 grid gap-3 sm:grid-cols-3">
+        ${stat('Mixing quality', pct(p.quality), 'share of balls displaced')}
+        ${stat('Favoured first-ball chance', pct(p.favoured), `uniform would be ${pct(p.uniform)}`)}
+        ${stat('Break-even shake', Number.isFinite(breakEven) ? `${breakEven.toFixed(1)}s` : '—', 'below this, Direct 1 would be beatable')}
+      </div>
+
+      <div class="mt-3 space-y-1">
+        ${qualities
+          .map(
+            (q, i) => `
+          <div class="flex items-center gap-2 text-[10px] text-slate-400">
+            <span class="w-14 shrink-0">ball ${i + 1}</span>
+            <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-white/5">
+              <div class="h-full rounded-full bg-sky-400/70" style="width:${(q * 100).toFixed(1)}%"></div>
+            </div>
+            <span class="w-10 shrink-0 text-right">${(q * 100).toFixed(0)}%</span>
+          </div>`
+          )
+          .join('')}
+      </div>
+      <p class="mt-1 text-[10px] text-slate-500">
+        The drum keeps mixing during the pause, so any bias can only shrink from ball 1 to ball 5 —
+        which is exactly why only the first ball is worth testing.
+      </p>
+
+      <p class="mt-3 rounded-lg border border-white/10 bg-black/20 p-2.5 text-[11px] leading-relaxed text-slate-200">
+        ${esc(verdict)}
+      </p>
+      <p class="mt-2 text-[10px] leading-snug text-slate-500">
+        The model is deliberately generous: it assumes the exit slot is the only biased position and
+        that displacement is all-or-nothing. Real air-mix drums mix faster than τ, the ball set is
+        loaded behind a sealed door, and NLA draws at 8:30pm GMT Monday–Saturday (7:30pm Sunday).
+      </p>
+    `)}
+
+    ${card(`
+      <h2 class="text-sm font-semibold text-slate-100">Straight answer</h2>
+      <div class="mt-2 space-y-2 text-[11px] leading-relaxed text-slate-300">
+        <p><b class="text-emerald-300">Timing can matter in principle.</b> An under-mixed drum with a
+        known loading order is genuinely exploitable — the simulator finds break-even below a few
+        seconds of shaking.</p>
+        <p><b class="text-amber-300">Neither condition holds for you.</b> You cannot see the loading
+        order, and your archive shows no first-ball skew beyond chance. Without the loading order, a
+        positional bias carries no information about which number is where.</p>
+        <p><b class="text-sky-300">What does help:</b> pick the ticket with the smallest house edge,
+        stake a fixed small amount, and keep the ledger honest. That is a real, measurable
+        improvement — from about ${(worst.ev * 100).toFixed(2)}% of stake back to
+        ${(best.ev * 100).toFixed(0)}%.</p>
+      </div>
+    `)}
   </div>`;
 }
 
@@ -1188,7 +1432,8 @@ export function renderApp(state: AppState): string {
         <p class="text-sm text-rose-300">${esc(state.error)}</p>
         <button type="button" data-action="reload" class="btn btn-primary mt-3">Retry</button>
       </div>`);
-  } else if (state.view === 'backtest') panel = renderBacktest(state);
+  } else if (state.view === 'lab') panel = renderLab(state);
+  else if (state.view === 'backtest') panel = renderBacktest(state);
   else if (state.view === 'ledger') panel = renderLedger(state);
   else if (state.view === 'settings') panel = renderSettings(state);
   else panel = renderDeduction(state);

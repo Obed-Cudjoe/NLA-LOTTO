@@ -58,6 +58,8 @@ export interface UiPrefs {
   advanced: boolean;
   minTrain: number;
   simulations: number;
+  /** Drum-timing simulator inputs (see src/mixing.ts). */
+  lab?: { shakeSeconds: number; interReleaseSeconds: number; tau: number; loadingKnown: boolean };
 }
 export const loadUi = (): Partial<UiPrefs> => read<Partial<UiPrefs>>(KEYS.ui, {});
 export const saveUi = (p: Partial<UiPrefs>): void => write(KEYS.ui, { ...loadUi(), ...p });

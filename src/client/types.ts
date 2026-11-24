@@ -1,8 +1,10 @@
 import type {
   LastDrawReview, BacktestResult, Deduction, Draw, EngineConfig } from '../mathEngine';
+import type { OrderReport } from '../drawOrder';
+import type { MixingInput } from '../mixing';
 
 export type Mode = 'worker' | 'static';
-export type View = 'deduce' | 'backtest' | 'ledger' | 'settings';
+export type View = 'deduce' | 'lab' | 'backtest' | 'ledger' | 'settings';
 export type Tone = 'ok' | 'bad' | 'info' | 'warn';
 
 export interface Health {
@@ -42,6 +44,10 @@ export interface AppState {
   deduction: Deduction | null;
   /** What the engine said before the newest stored draw, vs what came out. */
   review: LastDrawReview | null;
+  /** First-ball (order) analysis of the archive — the machine-bias test. */
+  order: OrderReport | null;
+  /** Drum-timing simulator inputs. */
+  lab: MixingInput;
   backtest: BacktestResult | null;
   backtestOpts: { minTrain: number; simulations: number };
   settings: Settings;

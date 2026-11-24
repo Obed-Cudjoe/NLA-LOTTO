@@ -63,6 +63,12 @@ app says that in the UI too.
 - Alternative filtered trios and three full 5-number "coverage lines".
 - Full ranking table for the top 24 of 90 numbers.
 
+The dashboard opens in **simple mode**: three picks, one plain-English reason
+each, the five-number line, and the result check. The z-scores, pillar
+contributions, model state and the full 90-number ranking live behind
+**Show the maths** — the arithmetic happens behind the scenes until you ask for
+it.
+
 **Controls**
 - **Game filter — defaults to tonight's game.** Monday's picks are computed from
   Monday Special's own history and target the next Monday draw; Midweek's from
@@ -97,6 +103,68 @@ default filter does. Two consequences worth knowing:
 - Ten draws per game is a thin window. The engine still produces a trio, but the
   header says so, and the Backtester will show you, on your own data, that the
   per-game picks have no measurable edge over chance either.
+
+**Draw lab tab — what each ticket really returns, and whether the machine can be read**
+
+NLA publishes fixed multipliers, so every bet's expected value is a one-line
+calculation rather than an opinion:
+
+| Ticket | Pays | Chance | Returns per 1.00 staked |
+|---|---|---|---|
+| Direct 2 (2 of your numbers drawn) | 240× | 1 in 401 | **0.60** |
+| Direct 1 (your number drawn **first**) | 40× | 1 in 90 | 0.44 |
+| Direct 3 | 2,100× | 1 in 11,748 | 0.18 |
+| Direct 4 | 6,000× | 1 in 511,038 | 0.012 |
+| Direct 5 (all five) | 44,000× | 1 in 43,949,268 | 0.001 |
+
+Two consequences the app states plainly:
+
+- **The cheapest-looking ticket is not the best one.** Direct 2 loses 40% of
+  stake on average; Direct 5 loses 99.9%. If you play at all, the top row of
+  that table is the least-bad choice.
+- **Five-number coverage buys lines, not edge.** Reaching a 50% chance on
+  Direct 5 takes about 30.5 million lines — roughly 30.5 million units staked
+  for an expected return of about 30,500. It can win, and somebody does; the
+  arithmetic of what "likely" costs is on the card.
+
+### Can the drum's timing be read?
+
+This is treated as a real, testable question rather than a debating point.
+
+*What the procedure actually is.* NLA runs a certified mechanical draw: a
+gravity-pick drum with rotating paddles, or an air-mix chamber where pressurised
+air suspends the balls. Pre-draw checks cover ball sets, weight tolerances,
+chamber seals and machine test cycles; the mixing phase has a minimum duration;
+each release is a separate button press by the host, so the pause between balls
+adds more mixing, not less. Draws run daily Monday–Saturday (evening; NLA-linked
+sources state 8:30pm GMT, Sunday Aseda 7:30pm — one aggregator quotes 7:15pm, so
+the app stores whatever the source publishes and never guesses).
+
+*The physics.* An air-mix drum is a chaotic mixer: displacement grows
+exponentially, so after a second or two each ball's position is effectively
+independent of where it started. Bias survives only while the drum is
+**under-mixed**, and exploiting it needs a second, separate condition — knowing
+which ball sits in the exit slot. Neither condition is available to a player:
+the ball set is loaded behind a sealed door, and the loading order is not
+published. Without it, a positional bias says nothing about which *number* is
+where.
+
+*The numbers.* The Draw lab simulates this with sliders for shake time, pause
+between presses, and mixing constant τ. At a generous τ = 0.7 s and 5 s of
+shaking, Direct 1 still returns only 0.48 per 1.00. The drum would have to be
+shaken for **less than about 3 seconds** for the first-ball market to become
+beatable — and even then only with a known loading order. Set the toggle to
+"sealed drum" and the edge vanishes identically: every ball is 1 in 90 whatever
+the timing.
+
+*The empirical check.* Because Direct 1 depends on the first ball, the archive
+is tested directly: a chi-square on the first-ball distribution against
+uniform(90), with a deterministic Monte-Carlo p-value. On the current 60 draws,
+p = 0.58 — indistinguishable from a fair drum. The tab also reports the honest
+limit of that evidence: 60 draws can only detect a first ball appearing about
+5.8× more often than chance, and a 2× effect would need roughly 880 draws. So
+the answer is "no evidence, and not enough data to prove a small effect either
+way" — which is exactly why the app does not sell a timing model.
 
 **Last draw vs the engine** (top of the Deduction tab)
 - The newest stored result next to the trio the engine produced *before* that

@@ -17,10 +17,12 @@ import {
   type Draw,
   type EngineConfig,
 } from '../mathEngine';
+import { DEFAULT_MIXING } from '../mixing';
+import { analyseDrawOrder } from '../drawOrder';
 import { parsePayload } from '../scraper';
 import * as store from './store';
 import { destroyAllCharts, renderBacktestCharts } from './charts';
-import { renderApp, renderDeduction, renderBacktest, renderLedger, renderSettings } from './views';
+import { renderApp, renderDeduction, renderLab, renderBacktest, renderLedger, renderSettings } from './views';
 import type { AppState, Mode, Tone, View } from './types';
 
 const ui = store.loadUi();
@@ -38,6 +40,8 @@ const state: AppState = {
   view: (ui.view as View) ?? 'deduce',
   deduction: null,
   review: null,
+  order: null,
+  lab: { ...DEFAULT_MIXING, ...(ui.lab ?? {}) },
   backtest: null,
   backtestOpts: { minTrain: ui.minTrain ?? 25, simulations: ui.simulations ?? 300 },
   settings: store.loadSettings(),
@@ -86,6 +90,8 @@ function toast(text: string, tone: Tone = 'info'): void {
 function panelHtml(): string {
   if (state.error) return renderDeduction(state); // renderApp handles the error panel
   switch (state.view) {
+    case 'lab':
+      return renderLab(state);
     case 'backtest':
       return renderBacktest(state);
     case 'ledger':
@@ -222,6 +228,7 @@ function recompute(): void {
   if (scoped.length < 5) {
     state.deduction = null;
     state.review = null;
+    state.order = null;
     return;
   }
   const config: EngineConfig = {
@@ -231,6 +238,9 @@ function recompute(): void {
   const targetGame = state.game === 'all' ? undefined : state.game;
   state.deduction = deduce(scoped, config, targetGame);
   state.review = reviewLastDraw(scoped, config, targetGame);
+  // First-ball analysis is cheap enough to run on every recompute and is the
+  // only honest test of the "machine timing matters" hypothesis.
+  state.order = analyseDrawOrder(scoped);
 }
 
 async function reloadData(): Promise<void> {
@@ -617,6 +627,21 @@ function bindEvents(): void {
     };
 
     switch (el.id) {
+      case 'lab-shake':
+        state.lab = { ...state.lab, shakeSeconds: Number(el.value) };
+        store.saveUi({ lab: state.lab });
+        render();
+        return;
+      case 'lab-interval':
+        state.lab = { ...state.lab, interReleaseSeconds: Number(el.value) };
+        store.saveUi({ lab: state.lab });
+        render();
+        return;
+      case 'lab-tau':
+        state.lab = { ...state.lab, tau: Number(el.value) };
+        store.saveUi({ lab: state.lab });
+        render();
+        return;
       case 'lookback':
         state.config.lookback = Math.max(5, Number(el.value));
         setText('lookback-val', String(state.config.lookback));
@@ -679,6 +704,11 @@ async function handleAction(action: string, el: HTMLElement): Promise<void> {
       break;
     case 'run-backtest':
       await runBacktest();
+      break;
+    case 'toggle-loading-known':
+      state.lab = { ...state.lab, loadingKnown: !state.lab.loadingKnown };
+      store.saveUi({ lab: state.lab });
+      render();
       break;
     case 'toggle-advanced':
       state.advanced = !state.advanced;
@@ -827,7 +857,7 @@ async function boot(): Promise<void> {
   }
   try {
     state.mode = await detectMode();
-    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.1.0' };
+    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.2.0' };
     if (!state.settings.ghRepo.trim()) {
       const guess = repoGuess();
       if (guess) {

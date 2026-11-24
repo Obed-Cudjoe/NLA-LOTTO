@@ -741,6 +741,90 @@ function journalRows(entries: AppState['journal']): string {
     .join('');
 }
 
+/**
+ * A two-tap timer for the live broadcast. Nothing here is a guess: the user
+ * watches GTV, taps when the guest is called and again when the button goes
+ * down, and the number goes straight into the journal.
+ */
+function stopwatchCard(state: AppState): string {
+  const sw = state.stopwatch;
+  const walkRunning = sw.walkStart !== null;
+  const shakeRunning = sw.shakeStart !== null;
+  const show = (v: number | null): string => (v === null ? '—' : `${v.toFixed(1)}s`);
+
+  const row = (opts: {
+    label: string;
+    hint: string;
+    running: boolean;
+    phase: 'walk' | 'shake';
+    value: number | null;
+    elapsedId: string;
+    startLabel: string;
+    stopLabel: string;
+  }): string => `
+    <div class="rounded-xl border border-white/10 bg-black/20 p-3">
+      <div class="flex items-baseline justify-between gap-2">
+        <span class="text-[10px] uppercase tracking-wide text-slate-400">${esc(opts.label)}</span>
+        <span id="${esc(opts.elapsedId)}" class="font-mono text-lg font-semibold ${
+          opts.running ? 'text-amber-300' : 'text-slate-200'
+        }">${opts.running ? '0.0s' : show(opts.value)}</span>
+      </div>
+      <p class="mt-0.5 text-[10px] leading-snug text-slate-500">${esc(opts.hint)}</p>
+      <button type="button" data-action="sw-tap" data-phase="${opts.phase}"
+        class="btn ${opts.running ? 'btn-primary' : 'btn-ghost'} mt-2 w-full">
+        ${opts.running ? esc(opts.stopLabel) : esc(opts.startLabel)}
+      </button>
+    </div>`;
+
+  return card(`
+    <div class="flex flex-wrap items-start justify-between gap-2">
+      <div>
+        <h2 class="text-sm font-semibold text-slate-100">Time the draw yourself</h2>
+        <p class="text-[11px] text-slate-400">
+          Nobody publishes how long the walk or the shake takes, so time it off the broadcast:
+          GTV, every evening. Tap once when the guest is called, once when the button goes down.
+          The numbers flow into the journal below.
+        </p>
+      </div>
+      ${badge(walkRunning || shakeRunning ? 'timing…' : 'idle', walkRunning || shakeRunning ? 'info' : 'muted')}
+    </div>
+
+    <div class="mt-3 grid gap-3 sm:grid-cols-2">
+      ${row({
+        label: 'Walk to the button',
+        hint: 'Announcer calls the guest → their hand on the button.',
+        running: walkRunning,
+        phase: 'walk',
+        value: sw.walkSeconds,
+        elapsedId: 'sw-walk-elapsed',
+        startLabel: 'Guest called — start',
+        stopLabel: 'Button pressed — stop',
+      })}
+      ${row({
+        label: 'Shake before the release',
+        hint: 'Drum starts mixing → the first ball leaves.',
+        running: shakeRunning,
+        phase: 'shake',
+        value: sw.shakeSeconds,
+        elapsedId: 'sw-shake-elapsed',
+        startLabel: 'Shake starts — start',
+        stopLabel: 'First ball out — stop',
+      })}
+    </div>
+
+    <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
+      <button type="button" data-action="sw-reset" class="btn btn-ghost"
+        ${sw.walkSeconds === null && sw.shakeSeconds === null && !walkRunning && !shakeRunning ? 'disabled' : ''}>
+        Reset timer
+      </button>
+      <p class="text-[10px] leading-snug text-slate-500">
+        Five guests press during a draw, one per ball — so time the <i>first</i> one and note that
+        each of the five winning numbers had its own walk.
+      </p>
+    </div>
+  `);
+}
+
 export function renderLab(state: AppState): string {
   const bets = betTypes();
   const best = bets[0];
@@ -907,8 +991,9 @@ export function renderLab(state: AppState): string {
         <div>
           <h2 class="text-sm font-semibold text-slate-100">The guest who presses the button</h2>
           <p class="text-[11px] text-slate-400">
-            An invited spectator walks from the audience to the release button. The clock runs —
-            the question is what the drum is doing while they walk.
+            NLA calls invited spectators out of the audience during the draw, one per ball. Each one
+            walks to the release button while the clock runs — so the question is what the drum is
+            doing during that walk, and whether the crowd watching it can be read as a signal.
           </p>
         </div>
         ${badge(`walk adds ${m.drumRunsDuringWalk ? `${collisionsDuringWalk(m).toLocaleString()} collisions per ball` : 'nothing'}`, m.drumRunsDuringWalk ? 'info' : 'muted')}
@@ -947,6 +1032,8 @@ export function renderLab(state: AppState): string {
       </p>
     `)}
 
+    ${stopwatchCard(state)}
+
     ${card(`
       <div class="flex flex-wrap items-start justify-between gap-2">
         <div>
@@ -963,9 +1050,13 @@ export function renderLab(state: AppState): string {
         <label class="field"><span>Draw date</span>
           <input id="j-date" type="date" value="${new Date().toISOString().slice(0, 10)}" /></label>
         <label class="field"><span>Walk (seconds)</span>
-          <input id="j-walk" type="number" min="0" max="600" step="1" placeholder="12" /></label>
+          <input id="j-walk" type="number" min="0" max="600" step="0.1"
+            value="${state.stopwatch.walkSeconds === null ? '' : state.stopwatch.walkSeconds.toFixed(1)}"
+            placeholder="12" /></label>
         <label class="field"><span>Shake (seconds)</span>
-          <input id="j-shake" type="number" min="0" max="600" step="1" placeholder="5" /></label>
+          <input id="j-shake" type="number" min="0" max="600" step="0.1"
+            value="${state.stopwatch.shakeSeconds === null ? '' : state.stopwatch.shakeSeconds.toFixed(1)}"
+            placeholder="5" /></label>
         <label class="field"><span>First ball drawn</span>
           <input id="j-first" type="number" min="1" max="90" step="1" placeholder="34" /></label>
       </div>

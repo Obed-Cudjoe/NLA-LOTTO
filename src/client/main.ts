@@ -47,6 +47,7 @@ const state: AppState = {
   lab: { ...DEFAULT_MIXING, ...(ui.lab ?? {}) },
   journal: store.loadJournal(),
   journalReport: null,
+  stopwatch: { walkStart: null, walkSeconds: null, shakeStart: null, shakeSeconds: null },
   backtest: null,
   backtestOpts: { minTrain: ui.minTrain ?? 25, simulations: ui.simulations ?? 300 },
   settings: store.loadSettings(),
@@ -568,6 +569,33 @@ function exportAll(format: 'json' | 'csv'): void {
 }
 
 /* ==========================================================================
+ * Stopwatch
+ *
+ * The only honest way to answer "how long does the walk take?" is to time a
+ * broadcast, so the lab gets a two-tap timer instead of a guess. It writes into
+ * the timing journal, which is what the statistics actually need.
+ * ========================================================================== */
+
+let swTicker: number | undefined;
+
+function paintStopwatch(): void {
+  const sw = state.stopwatch;
+  const walk = document.getElementById('sw-walk-elapsed');
+  const shake = document.getElementById('sw-shake-elapsed');
+  if (walk && sw.walkStart !== null) walk.textContent = `${((performance.now() - sw.walkStart) / 1000).toFixed(1)}s`;
+  if (shake && sw.shakeStart !== null) shake.textContent = `${((performance.now() - sw.shakeStart) / 1000).toFixed(1)}s`;
+  if (sw.walkStart === null && sw.shakeStart === null && swTicker !== undefined) {
+    clearInterval(swTicker);
+    swTicker = undefined;
+  }
+}
+
+function startStopwatchTicker(): void {
+  if (swTicker !== undefined) return;
+  swTicker = window.setInterval(paintStopwatch, 200);
+}
+
+/* ==========================================================================
  * Routing
  *
  * The site is a set of real addresses (`#/results`, `#/tools/lab`), not just
@@ -770,6 +798,35 @@ async function handleAction(action: string, el: HTMLElement): Promise<void> {
     case 'run-backtest':
       await runBacktest();
       break;
+    case 'sw-tap': {
+      const phase = el.dataset.phase === 'shake' ? 'shake' : 'walk';
+      const now = performance.now();
+      if (phase === 'walk') {
+        if (state.stopwatch.walkStart === null) {
+          state.stopwatch = { ...state.stopwatch, walkStart: now, walkSeconds: null };
+          toast('Walk timing started — tap again when the guest presses the button.', 'info');
+        } else {
+          const seconds = Math.max(0, (now - state.stopwatch.walkStart) / 1000);
+          state.stopwatch = { ...state.stopwatch, walkStart: null, walkSeconds: seconds };
+          toast(`Walk: ${seconds.toFixed(1)}s. Carried into the journal below.`, 'ok');
+        }
+      } else if (state.stopwatch.shakeStart === null) {
+        state.stopwatch = { ...state.stopwatch, shakeStart: now, shakeSeconds: null };
+        toast('Shake timing started — tap again when the first ball leaves.', 'info');
+      } else {
+        const seconds = Math.max(0, (now - state.stopwatch.shakeStart) / 1000);
+        state.stopwatch = { ...state.stopwatch, shakeStart: null, shakeSeconds: seconds };
+        toast(`Shake: ${seconds.toFixed(1)}s. Carried into the journal below.`, 'ok');
+      }
+      startStopwatchTicker();
+      render();
+      break;
+    }
+    case 'sw-reset': {
+      state.stopwatch = { walkStart: null, walkSeconds: null, shakeStart: null, shakeSeconds: null };
+      render();
+      break;
+    }
     case 'toggle-drum-walk':
       state.lab = { ...state.lab, drumRunsDuringWalk: !state.lab.drumRunsDuringWalk };
       store.saveUi({ lab: state.lab });
@@ -975,7 +1032,7 @@ async function boot(): Promise<void> {
   }
   try {
     state.mode = await detectMode();
-    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.3.0' };
+    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.4.0' };
     if (!state.settings.ghRepo.trim()) {
       const guess = repoGuess();
       if (guess) {

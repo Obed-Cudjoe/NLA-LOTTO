@@ -1,6 +1,6 @@
 {
   "name": "ghana-nla-5-90-engine",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "description": "Ghana NLA 5/90 Mathematical & Logical Deduction Engine \u2014 Cloudflare Worker + D1 + static GitHub Pages build",
   "type": "module",

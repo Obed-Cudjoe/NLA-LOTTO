@@ -142,6 +142,32 @@ Two consequences the app states plainly:
   for an expected return of about 30,500. It can win, and somebody does; the
   arithmetic of what "likely" costs is on the card.
 
+### How long does the guest take to walk to the button?
+
+Two questions, and only one of them has a published answer.
+
+**Who presses the button:** NLA calls invited spectators out of the audience during the
+draw, reportedly one per ball — so a single draw contains five separate walks to the
+release button. The broadcasts have been televised since March 2021: GTV (18:45–19:00),
+then UTV from December 2021 (19:15–19:30), then GTV again from December 2025 at 20:00,
+with the Sunday game at 18:00.
+
+**How long the walk lasts:** no broadcaster, regulator or results site publishes it. The
+honest answer is an estimate, not a statistic — the studio floor is a few metres wide, so
+it is **seconds, not minutes** (≈10–20 s, modelled at 12 s), and the shake is of the same
+order (≈5–10 s, modelled at 5 s).
+
+Rather than assert that, the app lets you measure it: the **stopwatch** in the Draw lab
+has two taps per phase — *guest called → button pressed*, and *shake starts → first ball
+out* — and carries the result straight into the timing journal, which is what the
+statistics need.
+
+**Why the walk cannot help you pick numbers** is not a matter of the estimate's accuracy.
+While the drum runs, a 12-second walk strikes every ball ~120 times against the ~7
+collisions needed to erase its starting position: the walk is *more* mixing, never a hint
+about identity. And if the drum is stopped, identical weight-controlled balls settle
+symmetrically, behind sealed glass, in an arrangement nobody can observe.
+
 ### Can the drum's timing be read?
 
 This is treated as a real, testable question rather than a debating point.

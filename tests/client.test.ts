@@ -449,4 +449,43 @@ describe('dashboard (static mode)', () => {
       expect(text, `${page} invents no phone number`).not.toMatch(/\b0\d{2,3}[\s-]?\d{3}[\s-]?\d{3,4}\b/);
     }
   });
+
+  it('times a real broadcast with the stopwatch and carries it into the journal', async () => {
+    await click('[data-action="goto"][data-page="tools"]');
+    await waitFor(() => Boolean(document.querySelector('[data-action="tab"][data-tab="lab"]')), 'tool tabs');
+    await click('[data-action="tab"][data-tab="lab"]');
+    await waitFor(() => appText().includes('Time the draw yourself'), 'stopwatch card');
+
+    // Start the walk, backdate the mark by 13.4s, then stop it as a user would.
+    await click('[data-action="sw-tap"][data-phase="walk"]');
+    expect(state().stopwatch.walkStart).toBeTypeOf('number');
+    state().stopwatch.walkStart = performance.now() - 13_400;
+    await click('[data-action="sw-tap"][data-phase="walk"]');
+
+    const walk = state().stopwatch.walkSeconds as number;
+    expect(walk).toBeGreaterThan(13);
+    expect(walk).toBeLessThan(14);
+    expect(appText()).toContain('Walk: 13.');
+
+    // Same for the shake.
+    await click('[data-action="sw-tap"][data-phase="shake"]');
+    state().stopwatch.shakeStart = performance.now() - 6_200;
+    await click('[data-action="sw-tap"][data-phase="shake"]');
+    const shake = state().stopwatch.shakeSeconds as number;
+    expect(shake).toBeGreaterThan(6);
+    expect(shake).toBeLessThan(7);
+
+    // The journal form is prefilled, so logging is one tap.
+    await waitFor(() => appText().includes('Timing journal'), 'journal card');
+    const jWalk = document.getElementById('j-walk') as HTMLInputElement;
+    const jShake = document.getElementById('j-shake') as HTMLInputElement;
+    expect(Number(jWalk.value)).toBeCloseTo(walk, 1);
+    expect(Number(jShake.value)).toBeCloseTo(shake, 1);
+
+    (document.getElementById('j-first') as HTMLInputElement).value = '34';
+    const before = state().journal.length;
+    await click('[data-action="journal-add"]');
+    await waitFor(() => state().journal.length === before + 1, 'timing logged from the stopwatch');
+    expect(state().journal[state().journal.length - 1].walkSeconds).toBeCloseTo(walk, 1);
+  });
 });

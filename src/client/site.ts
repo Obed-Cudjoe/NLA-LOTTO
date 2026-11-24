@@ -870,9 +870,9 @@ export function renderSmart(state: AppState): string {
         board is set below the odds.
       </p>
       <p class="mt-2 text-[11px] leading-relaxed text-slate-500">
-        The same arithmetic on Direct 5: at a stake of 10 the chance of any win is
-        ${pct(coverage({ betId: 'direct5', lines: 10 }).pAnyWin, 4)}, and it stays under 1% until the
-        stake passes four hundred thousand.
+        The same arithmetic on Direct 5, where the percentage is too small to print honestly:
+        a stake of 10 is <b class="text-slate-300">1 in ${n0(1 / coverage({ betId: 'direct5', lines: 10 }).pAnyWin)}</b>,
+        and the chance stays under 1% until the stake passes four hundred thousand.
       </p>`)}
 
     <div class="mt-8 grid gap-3 lg:grid-cols-2">

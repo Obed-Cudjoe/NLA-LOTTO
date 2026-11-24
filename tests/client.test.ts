@@ -406,6 +406,13 @@ describe('dashboard (static mode)', () => {
     expect(appText()).toContain('House keeps');
     expect(appText()).toContain('Coverage buys odds, not edge');
 
+    // The site sells nothing, and says so where a player would look.
+    await waitFor(() => appText().includes('Where to actually stake this'), 'staking guide');
+    expect(appText()).toContain('no tickets sold here');
+    expect(appText()).toContain('Direct 1 — “1 sure”');
+    expect(appText()).toContain('Direct 2 — “2 sure”');
+    expect(appText()).toContain('keep the printed ticket');
+
     // The honest answer to "how do we raise our chance": coverage and ticket
     // choice work, number selection does not.
     await waitFor(() => appText().includes('What actually raises your chance'), 'levers card');

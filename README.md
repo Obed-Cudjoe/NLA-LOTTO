@@ -142,6 +142,23 @@ Two consequences the app states plainly:
   for an expected return of about 30,500. It can win, and somebody does; the
   arithmetic of what "likely" costs is on the card.
 
+### Where do you actually stake a Direct 1 or Direct 2?
+
+Not here. This project sells nothing — no tickets, no accounts, no payments — and takes no
+referral money from anyone. Tickets are bought from **NLA-licensed retailers** (the kiosk with a
+point-of-sale terminal), through the 5/90 USSD short code (published as `*959#`; codes change, so
+confirm on the handset), or from an NLA-licensed online operator.
+
+At the counter the local names are worth knowing:
+
+| App label | What to say | What it needs |
+|---|---|---|
+| Direct 1 | “Direct 1 — number 80” (*1 sure*) | that number is the **first** ball out; 40×, 1 in 90 |
+| Direct 2 | “Direct 2 — 80 and 32” (*2 sure*) | both numbers anywhere in the five; 240×, 1 in 401 |
+
+Before leaving the counter, check the printed ticket: game, draw date, numbers, stake, multiplier.
+A ticket for the wrong game or day is the most common avoidable loss in this game.
+
 ### "What can we do to increase our chance of winning?"
 
 Three levers exist. Two work, and the third — the one people reach for — does nothing.

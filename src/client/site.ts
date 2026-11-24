@@ -484,6 +484,7 @@ function lineCard(state: AppState): string {
     <p class="mt-1 text-[10px] leading-snug text-slate-500">
       These five are the numbers the model rates highest. On a fair drum they are exactly as likely as
       any other five — the ranking is a reproducible guess, not an edge.
+      <a href="#/smart" data-action="goto" data-page="smart" class="text-amber-300 hover:underline">Where to stake them →</a>
     </p>
   `);
 }
@@ -748,6 +749,66 @@ export function renderSmart(state: AppState): string {
       of nothing in between. Direct 5 is a lottery within a lottery: it pays
       ${jackpot ? jackpot.multiplier.toLocaleString() : '44,000'}× on a 1-in-${jackpot ? n0(jackpot.oneIn) : '43,949,268'} shot.
     </p>
+
+    ${card(`
+      <div class="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 class="text-sm font-semibold text-slate-100">Where to actually stake this</h2>
+          <p class="text-[11px] text-slate-400">
+            This site sells nothing — no tickets, no accounts, no payments. It only does the
+            arithmetic. Here is where the two tickets actually live.
+          </p>
+        </div>
+        ${badge('no tickets sold here', 'muted')}
+      </div>
+
+      <div class="mt-3 grid gap-3 sm:grid-cols-2">
+        <div class="rounded-xl border border-white/10 bg-black/20 p-3">
+          <h3 class="text-[12px] font-semibold text-slate-100">Direct 1 — “1 sure”</h3>
+          <p class="mt-1 text-[11px] leading-relaxed text-slate-300">
+            One number. It pays if that number is the <b class="text-slate-100">first</b> ball out of
+            the drum. 40×, 1 in 90, about 44% returned per unit staked.
+          </p>
+          <p class="mt-1 text-[10px] leading-snug text-slate-500">
+            Say at the counter: “Direct 1 — number 80”. Check the order rule on the printout: it is a
+            position bet, not a “is it in the five” bet.
+          </p>
+        </div>
+        <div class="rounded-xl border border-white/10 bg-black/20 p-3">
+          <h3 class="text-[12px] font-semibold text-slate-100">Direct 2 — “2 sure”</h3>
+          <p class="mt-1 text-[11px] leading-relaxed text-slate-300">
+            Two numbers. It pays if <b class="text-slate-100">both</b> appear anywhere in the five
+            drawn. 240×, 1 in 401, about 60% returned per unit staked — the least-bad ticket on the
+            board.
+          </p>
+          <p class="mt-1 text-[10px] leading-snug text-slate-500">
+            Say at the counter: “Direct 2 — 80 and 32”. Order does not matter for this one.
+          </p>
+        </div>
+      </div>
+
+      <div class="mt-3 text-[11px] leading-relaxed text-slate-300">
+        <p class="font-medium text-slate-200">Three ways people actually buy them:</p>
+        <ul class="mt-1 grid gap-1">
+          <li><b class="text-slate-100">1.</b> Any NLA-licensed retailer — the lotto kiosk with a point-of-sale
+            terminal. Hand over cash, say the game and the numbers, keep the printed ticket.</li>
+          <li><b class="text-slate-100">2.</b> The USSD short code for 5/90 (published as *959# on the
+            operator's page; codes change, so confirm it on your screen or with the agent).</li>
+          <li><b class="text-slate-100">3.</b> An NLA-licensed online operator — check the licence before
+            sending money to any app claiming to be NLA.</li>
+        </ul>
+      </div>
+
+      <p class="mt-2 rounded-lg border border-white/10 bg-black/20 p-2.5 text-[11px] leading-relaxed text-slate-300">
+        Before you leave the counter, read the ticket: <b class="text-slate-100">game name, draw date,
+        your numbers, the stake and the multiplier</b>. If any of it is wrong, it is not your bet. A
+        ticket for the wrong game or the wrong day is the most common way players lose money they did
+        not expect to lose — far more common than losing the draw itself.
+      </p>
+      <p class="mt-2 text-[10px] leading-snug text-slate-500">
+        This site earns nothing from any of those routes and has no referral arrangement with any
+        operator. It is analysis, not a shop.
+      </p>`)}
 
     ${card(`
       <h2 class="text-sm font-semibold text-slate-100">What actually raises your chance</h2>

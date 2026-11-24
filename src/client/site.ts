@@ -484,6 +484,7 @@ function lineCard(state: AppState): string {
     <p class="mt-1 text-[10px] leading-snug text-slate-500">
       These five are the numbers the model rates highest. On a fair drum they are exactly as likely as
       any other five — the ranking is a reproducible guess, not an edge.
+      <a href="#/smart" data-action="goto" data-page="smart" class="text-amber-300 hover:underline">Where to stake them →</a>
     </p>
   `);
 }
@@ -748,6 +749,131 @@ export function renderSmart(state: AppState): string {
       of nothing in between. Direct 5 is a lottery within a lottery: it pays
       ${jackpot ? jackpot.multiplier.toLocaleString() : '44,000'}× on a 1-in-${jackpot ? n0(jackpot.oneIn) : '43,949,268'} shot.
     </p>
+
+    ${card(`
+      <div class="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 class="text-sm font-semibold text-slate-100">Where to actually stake this</h2>
+          <p class="text-[11px] text-slate-400">
+            This site sells nothing — no tickets, no accounts, no payments. It only does the
+            arithmetic. Here is where the two tickets actually live.
+          </p>
+        </div>
+        ${badge('no tickets sold here', 'muted')}
+      </div>
+
+      <div class="mt-3 grid gap-3 sm:grid-cols-2">
+        <div class="rounded-xl border border-white/10 bg-black/20 p-3">
+          <h3 class="text-[12px] font-semibold text-slate-100">Direct 1 — “1 sure”</h3>
+          <p class="mt-1 text-[11px] leading-relaxed text-slate-300">
+            One number. It pays if that number is the <b class="text-slate-100">first</b> ball out of
+            the drum. 40×, 1 in 90, about 44% returned per unit staked.
+          </p>
+          <p class="mt-1 text-[10px] leading-snug text-slate-500">
+            Say at the counter: “Direct 1 — number 80”. Check the order rule on the printout: it is a
+            position bet, not a “is it in the five” bet.
+          </p>
+        </div>
+        <div class="rounded-xl border border-white/10 bg-black/20 p-3">
+          <h3 class="text-[12px] font-semibold text-slate-100">Direct 2 — “2 sure”</h3>
+          <p class="mt-1 text-[11px] leading-relaxed text-slate-300">
+            Two numbers. It pays if <b class="text-slate-100">both</b> appear anywhere in the five
+            drawn. 240×, 1 in 401, about 60% returned per unit staked — the least-bad ticket on the
+            board.
+          </p>
+          <p class="mt-1 text-[10px] leading-snug text-slate-500">
+            Say at the counter: “Direct 2 — 80 and 32”. Order does not matter for this one.
+          </p>
+        </div>
+      </div>
+
+      <div class="mt-3 text-[11px] leading-relaxed text-slate-300">
+        <p class="font-medium text-slate-200">Three ways people actually buy them:</p>
+        <ul class="mt-1 grid gap-1">
+          <li><b class="text-slate-100">1.</b> Any NLA-licensed retailer — the lotto kiosk with a point-of-sale
+            terminal. Hand over cash, say the game and the numbers, keep the printed ticket.</li>
+          <li><b class="text-slate-100">2.</b> The USSD short code for 5/90 (published as *959# on the
+            operator's page; codes change, so confirm it on your screen or with the agent).</li>
+          <li><b class="text-slate-100">3.</b> An NLA-licensed online operator — check the licence before
+            sending money to any app claiming to be NLA.</li>
+        </ul>
+      </div>
+
+      <p class="mt-2 rounded-lg border border-white/10 bg-black/20 p-2.5 text-[11px] leading-relaxed text-slate-300">
+        Before you leave the counter, read the ticket: <b class="text-slate-100">game name, draw date,
+        your numbers, the stake and the multiplier</b>. If any of it is wrong, it is not your bet. A
+        ticket for the wrong game or the wrong day is the most common way players lose money they did
+        not expect to lose — far more common than losing the draw itself.
+      </p>
+      <p class="mt-2 text-[10px] leading-snug text-slate-500">
+        This site earns nothing from any of those routes and has no referral arrangement with any
+        operator. It is analysis, not a shop.
+      </p>`)}
+
+    ${card(`
+      <h2 class="text-sm font-semibold text-slate-100">What actually raises your chance</h2>
+      <p class="mt-2 text-[12px] leading-relaxed text-slate-300">
+        Three levers exist. Two of them work, and the third — the one everybody reaches for — does
+        not move the probability by a single thousandth.
+      </p>
+
+      <div class="mt-3 grid gap-2 text-[12px] leading-relaxed">
+        <p><b class="text-slate-100">Lever 1 — buy more lines.</b> Each additional line adds its own
+        chance, so probability rises roughly in step with the number of lines. So does the cost,
+        which is why the expected return in the last column never improves.</p>
+        <p><b class="text-slate-100">Lever 2 — pick the ticket that matches your goal.</b>
+        Direct 1 has the highest hit rate per cedi (1 in 90 = 1.11% a line). Direct 2 has the best
+        expected return (0.60 back per 1.00). Those are different prizes: the first maximises how
+        often you win <em>something</em>, the second minimises how fast you lose.</p>
+        <p><b class="text-slate-100">Lever 3 — which numbers you choose. This lever does nothing.</b>
+        Every combination of five is equally likely; a pick that follows a trend is following
+        nothing. On this site it is a hypothesis being tested, not a tool.</p>
+      </div>
+
+      <div class="mt-3 overflow-x-auto">
+        <table class="w-full min-w-[560px] text-left text-[11px]">
+          <thead class="text-[10px] uppercase tracking-wide text-slate-500">
+            <tr>
+              <th class="py-1 pr-2">Ticket</th>
+              <th class="py-1 pr-2">Stake 10</th>
+              <th class="py-1 pr-2">Stake 50</th>
+              <th class="py-1 pr-2">Stake 100</th>
+              <th class="py-1">Returns 100 staked</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${['direct1', 'direct2', 'direct3']
+              .map((id) => {
+                const bet = betTypes().find((b) => b.id === id)!;
+                const cells = [10, 50, 100].map((stake) => {
+                  const cov = coverage({ betId: bet.id, lines: stake, stakePerLine: 1 });
+                  return `<td class="py-1 pr-2 text-slate-300">${pct(cov.pAnyWin, 1)} <span class="text-slate-500">chance of a win</span></td>`;
+                });
+                const big = coverage({ betId: bet.id, lines: 100, stakePerLine: 1 });
+                return `<tr class="border-t border-white/5">
+                  <td class="py-1 pr-2 text-slate-100">${esc(bet.label)} <span class="text-slate-500">${bet.multiplier.toLocaleString()}×</span></td>
+                  ${cells.join('')}
+                  <td class="py-1 text-slate-300">${n0(big.expectedReturnValue)}</td>
+                </tr>`;
+              })
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <p class="mt-2 rounded-lg border border-amber-400/20 bg-amber-400/5 p-2.5 text-[11px] leading-relaxed text-amber-100/85">
+        Read the row and then the last column. Staking 100 on Direct 1 buys a
+        <b>${pct(coverage({ betId: 'direct1', lines: 100 }).pAnyWin, 0)}</b> chance of winning
+        <em>something</em> — and an expected return of
+        <b>${n0(coverage({ betId: 'direct1', lines: 100 }).expectedReturnValue)}</b>. You can buy a high
+        chance of a win. You cannot buy a high chance of coming out ahead, because every price on the
+        board is set below the odds.
+      </p>
+      <p class="mt-2 text-[11px] leading-relaxed text-slate-500">
+        The same arithmetic on Direct 5: at a stake of 10 the chance of any win is
+        ${pct(coverage({ betId: 'direct5', lines: 10 }).pAnyWin, 4)}, and it stays under 1% until the
+        stake passes four hundred thousand.
+      </p>`)}
 
     <div class="mt-8 grid gap-3 lg:grid-cols-2">
       ${card(`

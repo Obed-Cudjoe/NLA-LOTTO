@@ -160,6 +160,12 @@ draws it says nothing; at 20+ it compares observed hits with those expectations 
 where the book stands, including when it is below chance. CSV export carries the scoring
 columns so the arithmetic can be checked outside the app.
 
+A line can only be locked **before** its draw. Once the evening window has closed (20:30 GMT),
+the button is disabled and the app says why: a line locked after the result is hindsight, not a
+prediction, and the record would be worthless. If the archive is behind — the result exists but
+the refresh has not fetched it — the page says that too, instead of calling a finished draw
+"tonight's".
+
 The point is not that the line is lucky. It is that the line is **checkable**. A reader
 can see what was said, when, and what happened — which is the only claim this project
 makes about its own output.

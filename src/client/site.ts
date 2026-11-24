@@ -9,7 +9,7 @@
 import { GAME_WEEKDAY, GAMES } from '../types';
 import { formatDrawDate } from '../mathEngine';
 import { betTypes, coverage, linesForConfidence } from '../bets';
-import { scorePickBook } from '../pickBook';
+import { isDrawPast, scorePickBook } from '../pickBook';
 import { collisionsDuringWalk, collisionsToMix, effectiveMixSeconds } from '../mixing';
 import { badge, balls, card, drawWhen, esc, pct, stat, targetHeading } from './format';
 import {
@@ -414,6 +414,9 @@ function lineCard(state: AppState): string {
   const locked = state.pickBook.find(
     (p) => p.draw_date === d.next.date && p.game.toLowerCase() === d.next.game.toLowerCase()
   );
+  // A line locked after the draw is not a prediction. The button goes dead once
+  // the evening window has closed and the result is not yet stored.
+  const past = isDrawPast(d.next.date);
 
   const row = (label: string, numbers: number[], big: boolean, bets: string[], note: string): string => `
     <div class="rounded-xl border border-white/10 bg-black/20 p-3">
@@ -438,7 +441,7 @@ function lineCard(state: AppState): string {
           built from ${n0(d.meta.drawsUsed)} stored draws of this game
         </p>
       </div>
-      ${badge(locked ? 'locked' : 'not locked yet', locked ? 'ok' : 'warn')}
+      ${badge(locked ? 'locked' : past ? 'draw already held' : 'not locked yet', locked ? 'ok' : past ? 'muted' : 'warn')}
     </div>
 
     <div class="mt-3 grid gap-2">
@@ -457,8 +460,9 @@ function lineCard(state: AppState): string {
     </div>
 
     <div class="mt-3 flex flex-wrap items-center gap-2">
-      <button type="button" data-action="lock-pick" class="btn btn-primary">
-        ${locked ? 'Re-lock this line' : 'Lock this line before the draw'}
+      <button type="button" data-action="lock-pick" class="btn btn-primary"
+        ${past && !locked ? 'disabled title="This draw has already been held — locking now would be hindsight"' : ''}>
+        ${locked ? 'Re-lock this line' : past ? 'Draw already held' : 'Lock this line before the draw'}
       </button>
       <button type="button" data-action="export-picks" class="btn btn-ghost"
         ${state.pickBook.length ? '' : 'disabled'}>Export the book (CSV)</button>
@@ -469,7 +473,9 @@ function lineCard(state: AppState): string {
       ${
         locked
           ? `Locked ${esc(new Date(locked.locked_at).toLocaleString('en-GB'))} — before the result, so the record cannot be rewritten afterwards.`
-          : 'Locking stores these numbers with a timestamp in this browser. It changes nothing about the odds; it just means the line is on record before the drum runs.'
+          : past
+            ? `The ${esc(d.next.game)} draw for ${esc(d.next.date)} has already been held and its result is not stored yet. Locking now would be hindsight, so it is disabled: refresh the results first, and the app will move on to the next draw.`
+            : 'Locking stores these numbers with a timestamp in this browser. It changes nothing about the odds; it just means the line is on record before the drum runs.'
       }
     </p>
     <p class="mt-1 text-[10px] leading-snug text-slate-500">

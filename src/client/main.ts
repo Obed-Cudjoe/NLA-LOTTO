@@ -20,7 +20,14 @@ import {
 import { DEFAULT_MIXING } from '../mixing';
 import { analyseTimingJournal, journalToCsv, type TimingEntry } from '../timingJournal';
 import { analyseDrawOrder } from '../drawOrder';
-import { emptyReport, lockPick, pickBookToCsv, pickFromDeduction, scorePickBook, type PickRecord } from '../pickBook';
+import {
+  emptyReport,
+  isDrawPast,
+  lockPick,
+  pickBookToCsv,
+  pickFromDeduction,
+  scorePickBook,
+} from '../pickBook';
 import { parsePayload } from '../scraper';
 import * as store from './store';
 import { destroyAllCharts, renderBacktestCharts } from './charts';
@@ -808,6 +815,10 @@ async function handleAction(action: string, el: HTMLElement): Promise<void> {
         toast('No line to lock yet — the archive is still loading.', 'warn');
         return;
       }
+      if (isDrawPast(state.deduction.next.date)) {
+        toast('That draw has already been held — a line locked now would be hindsight. Refresh the results first.', 'warn');
+        return;
+      }
       const pick = pickFromDeduction(state.deduction);
       state.pickBook = lockPick(state.pickBook, pick);
       store.savePickBook(state.pickBook);
@@ -1071,7 +1082,7 @@ async function boot(): Promise<void> {
   }
   try {
     state.mode = await detectMode();
-    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.5.0' };
+    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.5.1' };
     if (!state.settings.ghRepo.trim()) {
       const guess = repoGuess();
       if (guess) {

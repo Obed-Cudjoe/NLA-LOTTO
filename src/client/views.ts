@@ -36,6 +36,7 @@ import {
   zWidth,
 } from './format';
 import { betTypes, coverage, linesForConfidence } from '../bets';
+import { isDrawPast } from '../pickBook';
 import {
   bestDirect1Ev,
   breakEvenShakeSeconds,
@@ -649,6 +650,9 @@ export function renderDeduction(state: AppState): string {
   const when = drawWhen(d.next.date, todayIso);
   const latest = state.draws[state.draws.length - 1];
   const stale = stalenessNote(d.next, todayIso);
+  // The draw has been held but its result is not in the archive yet: say so
+  // rather than calling a finished draw "tonight's".
+  const heldNotStored = d.next.date === todayIso && isDrawPast(d.next.date);
   const drawnToday =
     latest && latest.draw_date === todayIso
       ? `${latest.game_name} already drawn today (${latest.winning.join(' · ')}), so these are for ${when === 'tonight' ? 'the next draw' : when}.`
@@ -667,6 +671,9 @@ export function renderDeduction(state: AppState): string {
           ? `<p class="mt-1 text-[11px] text-slate-500">${esc(drawnToday)}</p>`
           : ''}
         ${stale ? `<p class="mt-1 text-[11px] text-amber-400/80">${esc(stale)}</p>` : ''}
+        ${heldNotStored
+          ? `<p class="mt-1 text-[11px] text-amber-400/80">Tonight's draw has been held (the evening window closes at 20:30 GMT) but the result is not stored yet. Refresh the results to score it and move the target to the next game.</p>`
+          : ''}
         ${state.game !== 'all' && d.meta.drawsUsed < 25
           ? `<p class="mt-1 text-[11px] text-slate-500">Only ${d.meta.drawsUsed} ${esc(
               state.game

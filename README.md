@@ -142,6 +142,27 @@ Two consequences the app states plainly:
   for an expected return of about 30,500. It can win, and somebody does; the
   arithmetic of what "likely" costs is on the card.
 
+### The target is a draw you can still stake on
+
+A draw ends in two ways, and the calendar only knows about one of them:
+
+1. the clock passes **20:30 GMT** on the day, and
+2. **the result is in the archive**.
+
+`nextOpenDraw(history, now, game?)` checks both. The moment a result is stored it skips that
+date and the target rolls to the following game — Tuesday's result landing does not leave the
+page advertising "tonight's draw" on Wednesday. `deduce()` takes the same clock as an optional
+argument, so the daily review can replay the model *as it stood on the morning of the draw*
+(`reviewLastDraw` passes 12:00 UTC on that date).
+
+The client also polls `data/draws.json` every two minutes and on tab focus; when a new draw
+appears the target moves, the picks recompute and the page repaints itself — no reload, no
+pressing refresh.
+
+**The analysis stays scoped to one game.** Midweek's five numbers come from Midweek's own
+draws, not a pool of six games: on 25 Nov 2026 that is 80 · 32 · 47 · 12 · 71, unchanged by the
+Tuesday result because a Tuesday draw is not Midweek history.
+
 ### Where do you actually stake a Direct 1 or Direct 2?
 
 Not here. This project sells nothing — no tickets, no accounts, no payments — and takes no

@@ -10,6 +10,7 @@ import {
   reviewLastDraw,
   filterByGame,
   gameForDate,
+  nextOpenDraw,
   normalizeHistory,
   parseCsv,
   rowToDraw,
@@ -42,9 +43,10 @@ const state: AppState = {
   health: null,
   draws: [],
   overlay: store.loadOverlay(),
-  // Default to tonight's game: Monday's picks should come from Monday Special's
-  // own history, not a blend of six games. Falls back to pooled on a Sunday
-  // (no evening draw) or before the schedule is known.
+  // Default to the game of the next draw still open for staking: Monday's picks
+  // should come from Monday Special's own history, not a blend of six games. The
+  // moment tonight's result lands this moves to the following game, so the page
+  // never advertises a draw that has already been held.
   game: ui.game ?? todayGame() ?? 'all',
   config: store.loadConfig(),
   view: (ui.view as View) ?? 'deduce',
@@ -224,6 +226,9 @@ async function loadDraws(): Promise<void> {
   const todayIso = new Date().toISOString().slice(0, 10);
   const notFuture = (d: Draw): boolean => d.draw_date <= todayIso;
   state.draws = normalizeHistory([...remote, ...state.overlay].filter(notFuture));
+  // Nobody has pinned a game: follow the next draw a player can actually stake
+  // on, which rolls forward the instant tonight's result is stored.
+  if (!ui.game) state.game = nextOpenDraw(state.draws).game;
 }
 
 /** The game drawn today (UTC), or null on a Sunday. */
@@ -256,6 +261,42 @@ function recompute(): void {
   // 60 draws rather than the 10 a single weekday happens to hold.
   state.orderAll = analyseDrawOrder(state.draws);
   state.journalReport = analyseTimingJournal(state.journal);
+}
+
+/**
+ * Keep the archive honest without asking the visitor to press anything.
+ *
+ * The draw is at 20:00 GMT and results land some minutes later, so the page
+ * polls quietly in the background; when a new draw appears the target rolls to
+ * the next open draw, the picks are recomputed, and the page re-renders itself.
+ */
+const DRAW_POLL_MS = 120_000;
+
+function drawStamp(): string {
+  const last = state.draws[state.draws.length - 1];
+  return `${state.draws.length}|${last?.draw_date ?? ''}|${last?.game_name ?? ''}`;
+}
+
+async function pollForNewDraws(): Promise<void> {
+  if (document.hidden || state.busy) return;
+  const before = drawStamp();
+  try {
+    await loadDraws();
+  } catch {
+    return; // offline or CDN hiccup: try again on the next tick
+  }
+  if (drawStamp() === before) return;
+  if (!ui.game) state.game = nextOpenDraw(state.draws).game;
+  recompute();
+  state.lastSync = new Date().toLocaleTimeString();
+  render();
+}
+
+function startDrawPolling(): void {
+  window.setInterval(() => void pollForNewDraws(), DRAW_POLL_MS);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) void pollForNewDraws();
+  });
 }
 
 async function reloadData(): Promise<void> {
@@ -1082,7 +1123,7 @@ async function boot(): Promise<void> {
   }
   try {
     state.mode = await detectMode();
-    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.8.0' };
+    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.9.0' };
     if (!state.settings.ghRepo.trim()) {
       const guess = repoGuess();
       if (guess) {
@@ -1093,6 +1134,7 @@ async function boot(): Promise<void> {
     await loadDraws();
     recompute();
     applyRoute(true);
+    startDrawPolling();
     if (!state.draws.length) {
       toast('No draws loaded. Import results in the Ledger tab, or check data/draws.json.', 'warn');
     }

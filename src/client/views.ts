@@ -9,6 +9,7 @@ import {
   GAMES,
   decadeLabel,
   formatDrawDate,
+  nextOpenDraw,
   type BacktestResult,
   type Deduction,
   type EngineConfig,
@@ -120,7 +121,7 @@ export function renderControls(state: AppState): string {
             ${GAMES.map(
               (g) =>
                 `<option value="${esc(g)}"${state.game === g ? ' selected' : ''}>${esc(g)}${
-                  g === todayGameLabel() ? ' — today' : ''
+                  g === nextGameLabel(state) ? ' — next draw' : ''
                 }</option>`
             ).join('')}
           </select>
@@ -528,10 +529,13 @@ function rankingTable(d: Deduction): string {
 }
 
 /** "What the engine said last time, and what actually came out." */
-/** Name of the game drawn today (UTC), for the "— today" hint in the filter. */
-function todayGameLabel(): string {
-  const wd = new Date().getUTCDay();
-  return ['', 'Monday Special', 'Lucky Tuesday', 'Midweek', 'Fortune Thursday', 'Friday Bonanza', 'National Weekly'][wd] ?? '';
+/**
+ * Name of the game of the next draw still open for staking, for the "— next
+ * draw" hint in the filter. Clock and archive both count: once the result is
+ * stored, the hint moves on with it.
+ */
+function nextGameLabel(state: AppState): string {
+  return nextOpenDraw(state.draws).game;
 }
 
 function renderLastDrawReview(state: AppState): string {

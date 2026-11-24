@@ -6,6 +6,7 @@ import {
   CHANCE_THREE,
   CHANCE_TWO,
   DEFAULT_CONFIG,
+  nextOpenDraw,
   EXPECTED_GAP,
   auditTrio,
   backtest,
@@ -410,5 +411,63 @@ describe('per-game targets — Monday picks on Monday', () => {
     const r = reviewLastDraw(midweek, DEFAULT_CONFIG, 'Midweek')!;
     expect(r.actual.game_name).toBe('Midweek');
     expect(r.predicted.targetDate).toBe(r.actual.draw_date);
+  });
+});
+
+describe('nextOpenDraw — the target is a draw you can still stake on', () => {
+  const draw = (draw_date: string, game_name: string): Draw => ({
+    draw_date,
+    game_name,
+    winning: [1, 2, 3, 4, 5],
+    machine: [6, 7, 8, 9, 10],
+  });
+
+  it('keeps today while the window is open and no result is stored', () => {
+    // Tuesday 24 Nov 2026, 19:40 UTC — the draw has not happened yet.
+    const open = nextOpenDraw([draw('2026-11-23', 'Monday Special')], new Date('2026-11-24T19:40:00Z'));
+    expect(open.date).toBe('2026-11-24');
+    expect(open.game).toBe('Lucky Tuesday');
+  });
+
+  it('rolls to the next game the moment the result is stored', () => {
+    const history = [
+      draw('2026-11-23', 'Monday Special'),
+      draw('2026-11-24', 'Lucky Tuesday'),
+    ];
+    const open = nextOpenDraw(history, new Date('2026-11-24T21:30:00Z'));
+    expect(open.date).toBe('2026-11-25');
+    expect(open.game).toBe('Midweek');
+  });
+
+  it('rolls forward at 20:30 even before the result arrives', () => {
+    const history = [draw('2026-11-23', 'Monday Special')];
+    expect(nextOpenDraw(history, new Date('2026-11-24T20:29:00Z')).date).toBe('2026-11-24');
+    expect(nextOpenDraw(history, new Date('2026-11-24T20:31:00Z')).date).toBe('2026-11-25');
+  });
+
+  it('skips Sunday, which has no evening draw', () => {
+    const open = nextOpenDraw([], new Date('2026-11-29T21:00:00Z')); // Sunday
+    expect(open.game).toBe('Monday Special');
+    expect(open.date).toBe('2026-11-30');
+  });
+
+  it('honours a scoped game while still skipping settled draws', () => {
+    const history = [draw('2026-11-25', 'Midweek')];
+    const open = nextOpenDraw(history, new Date('2026-11-25T21:00:00Z'), 'Midweek');
+    expect(open.game).toBe('Midweek');
+    expect(open.date).toBe('2026-12-02');
+  });
+
+  it('moves the deduction target with it', () => {
+    const history = Array.from({ length: 8 }, (_, i) => {
+      const date = new Date(Date.UTC(2026, 10, 16 + i));
+      return draw(date.toISOString().slice(0, 10), 'Lucky Tuesday');
+    });
+    // Same archive, two clocks: the target changes because the draw ended, not
+    // because the numbers did.
+    const before = deduce(history, DEFAULT_CONFIG, 'Lucky Tuesday', new Date('2026-11-24T19:00:00Z'));
+    const after = deduce(history, DEFAULT_CONFIG, 'Lucky Tuesday', new Date('2026-11-24T21:00:00Z'));
+    expect(before.next.date).toBe('2026-11-24');
+    expect(after.next.date).toBe('2026-12-01');
   });
 });

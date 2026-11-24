@@ -13,6 +13,7 @@
  * excusing a miss as a near-hit.
  */
 
+import { DRAW_CLOSE_UTC_MINUTES } from './mathEngine';
 import type { Draw, Deduction } from './mathEngine';
 
 export interface PickRecord {
@@ -66,7 +67,7 @@ export const FIVE_CHANCE = 1 / 43949268;
  * Dec 2025; before that it was 19:15). After that, locking a line is no longer a
  * prediction — it is hindsight, and the record would be worthless.
  */
-export const DRAW_CLOSE_UTC_MINUTES = 20 * 60 + 30;
+export { DRAW_CLOSE_UTC_MINUTES };
 
 /** Has the draw for `dateIso` already taken place? */
 export function isDrawPast(dateIso: string, now: number = Date.now()): boolean {

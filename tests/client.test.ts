@@ -107,17 +107,19 @@ describe('dashboard (static mode)', () => {
     expect(appText()).toMatch(/most likely outcome/i);
   });
 
-  it('defaults to the game drawn today', () => {
-    const wd = new Date().getUTCDay();
-    const todayGame =
-      ['', 'Monday Special', 'Lucky Tuesday', 'Midweek', 'Fortune Thursday', 'Friday Bonanza', 'National Weekly'][wd] || 'all';
-    expect(state().game).toBe(todayGame);
-    if (todayGame !== 'all') {
-      // The target is that game's own next draw, not whichever game comes next.
-      expect(state().deduction.next.game).toBe(todayGame);
-      expect(appText()).toContain(todayGame);
-      expect(appText()).toContain('— today');
-    }
+  it('defaults to the next draw that is still open, not to a draw already held', () => {
+    const s = state();
+    const next = s.deduction.next;
+    // Whatever the clock says, the app never points at a draw whose result is
+    // already stored, and never at a closed window on today's date.
+    const settled = s.draws.some(
+      (d: { draw_date: string; game_name: string }) => d.draw_date === next.date && d.game_name === next.game
+    );
+    expect(settled).toBe(false);
+    expect(next.date >= new Date().toISOString().slice(0, 10)).toBe(true);
+    // The filter follows the same draw, so the page and the picks agree.
+    expect(s.game).toBe(next.game);
+    expect(appText()).toContain('— next draw');
   });
 
   it('exposes the live state for debugging', () => {

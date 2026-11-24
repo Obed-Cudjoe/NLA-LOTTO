@@ -7,7 +7,7 @@
  * or a caveat — never a formula.
  */
 import { GAME_WEEKDAY, GAMES } from '../types';
-import { formatDrawDate } from '../mathEngine';
+import { formatDrawDate, nextOpenDraw } from '../mathEngine';
 import { betTypes, coverage, linesForConfidence } from '../bets';
 import { isDrawPast, scorePickBook } from '../pickBook';
 import { collisionsDuringWalk, collisionsToMix, effectiveMixSeconds } from '../mixing';
@@ -139,8 +139,9 @@ function featureCard(opts: {
 }
 
 function gameChips(state: AppState): string {
-  const today = new Date().toISOString().slice(0, 10);
-  const todayGame = GAMES.find((g) => GAME_WEEKDAY[g] === new Date(`${today}T00:00:00Z`).getUTCDay());
+  // The hint follows the next draw a player can still stake on, so it rolls
+  // forward the moment tonight's result lands.
+  const nextGame = nextOpenDraw(state.draws).game;
   const items: Array<{ id: string; label: string }> = [
     { id: 'all', label: 'All games' },
     ...GAMES.map((g) => ({ id: g, label: g })),
@@ -152,7 +153,7 @@ function gameChips(state: AppState): string {
           (g) => `<button type="button" data-action="pick-game" data-game="${esc(g.id)}"
             class="chip${state.game === g.id ? ' chip-active' : ''}"
             aria-pressed="${state.game === g.id}">${esc(g.label)}${
-              g.id === todayGame ? '<span class="ml-1 text-amber-300">· today</span>' : ''
+              g.id === nextGame ? '<span class="ml-1 text-amber-300">· next</span>' : ''
             }</button>`
         )
         .join('')}
@@ -870,9 +871,9 @@ export function renderSmart(state: AppState): string {
         board is set below the odds.
       </p>
       <p class="mt-2 text-[11px] leading-relaxed text-slate-500">
-        The same arithmetic on Direct 5: at a stake of 10 the chance of any win is
-        ${pct(coverage({ betId: 'direct5', lines: 10 }).pAnyWin, 4)}, and it stays under 1% until the
-        stake passes four hundred thousand.
+        The same arithmetic on Direct 5, where the percentage is too small to print honestly:
+        a stake of 10 is <b class="text-slate-300">1 in ${n0(1 / coverage({ betId: 'direct5', lines: 10 }).pAnyWin)}</b>,
+        and the chance stays under 1% until the stake passes four hundred thousand.
       </p>`)}
 
     <div class="mt-8 grid gap-3 lg:grid-cols-2">

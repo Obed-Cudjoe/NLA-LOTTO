@@ -160,6 +160,110 @@ describe('dashboard (static mode)', () => {
     expect(appText()).toContain('How this app is honest with you');
   });
 
+  it('keeps the maths behind the scenes until asked', async () => {
+    await click('[data-action="tab"][data-tab="deduce"]');
+    await waitFor(() => appText().includes('Show the maths'), 'simple mode affordance');
+    // The 90-number ranking and model-state panel are opt-in.
+    expect(appText()).not.toContain('Full pillar ranking');
+    expect(appText()).not.toContain('Score entropy');
+    // Plain English and the five-number line are always visible.
+    expect(appText()).toContain('Plain-English justifications');
+    expect(appText()).toContain('The full five-number line');
+
+    await click('[data-action="toggle-advanced"]');
+    await waitFor(() => appText().includes('Full pillar ranking'), 'maths revealed');
+    expect(appText()).toContain('Score entropy');
+    await click('[data-action="toggle-advanced"]');
+    await waitFor(() => !appText().includes('Full pillar ranking'), 'maths hidden again');
+  });
+
+  it('shows which NLA ticket loses least in the draw lab', async () => {
+    await click('[data-action="tab"][data-tab="lab"]');
+    await waitFor(() => appText().includes('What each NLA bet actually returns'), 'bet board');
+    expect(appText()).toContain('Direct 2');
+    expect(appText()).toContain('44,000×');
+    expect(appText()).toMatch(/best: Direct 2 at 60%/);
+    // The five types are ranked, and the worst is called out.
+    expect(appText()).toContain('0.10%');
+  });
+
+  it('tests the first ball against the archive instead of assuming', async () => {
+    await click('[data-action="tab"][data-tab="lab"]');
+    await waitFor(() => appText().includes('Is the first ball biased?'), 'first-ball card');
+    expect(state().order).toBeTruthy();
+    expect(state().order.draws).toBe(state().draws.length);
+    expect(appText()).toContain('Chi-square');
+    expect(appText()).toMatch(/consistent with a fair drum|unusual skew/i);
+    expect(appText()).toContain('df = 89');
+  });
+
+  it('lets the drum-timing sliders change the verdict', async () => {
+    await click('[data-action="tab"][data-tab="lab"]');
+    await waitFor(() => Boolean(document.getElementById('lab-shake')), 'shake slider');
+    const slider = document.getElementById('lab-shake') as HTMLInputElement;
+    slider.value = '0.4';
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+    await waitFor(() => state().lab.shakeSeconds === 0.4, 'slider state persisted');
+    expect(appText()).toMatch(/under-mixed/i);
+    // A very short shake would make Direct 1 beatable — with a known loading order.
+    expect(appText()).toMatch(/per 1\.00/);
+  });
+
+  it('removes the edge entirely when the drum is sealed', async () => {
+    await click('[data-action="tab"][data-tab="lab"]');
+    await waitFor(() => appText().includes('sealed drum') || appText().includes('assuming you know'), 'toggle present');
+    if (!state().lab.loadingKnown) {
+      await click('[data-action="toggle-loading-known"]');
+      await waitFor(() => state().lab.loadingKnown, 'loading known on');
+    }
+    await click('[data-action="toggle-loading-known"]');
+    await waitFor(() => !state().lab.loadingKnown, 'sealed drum');
+    expect(appText()).toContain('sealed drum');
+    expect(appText()).toMatch(/1 in 90/);
+    // Restore for other tests.
+    await click('[data-action="toggle-loading-known"]');
+  });
+
+  it('models the guest walking to the button — as mixing, not as a signal', async () => {
+    await click('[data-action="tab"][data-tab="lab"]');
+    await waitFor(() => appText().includes('The guest who presses the button'), 'guest card');
+    expect(appText()).toContain('Collisions per ball');
+    expect(state().lab.walkSeconds).toBeGreaterThan(0);
+
+    const slider = document.getElementById('lab-walk') as HTMLInputElement;
+    slider.value = '40';
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+    await waitFor(() => state().lab.walkSeconds === 40, 'walk slider persisted');
+    // More walking means more mixing, and the copy says so.
+    expect(appText()).toMatch(/more mixing than the drum needs/i);
+
+    // With the drum stopped, the walk changes nothing at all.
+    await click('[data-action="toggle-drum-walk"]');
+    await waitFor(() => !state().lab.drumRunsDuringWalk, 'drum stopped');
+    expect(appText()).toMatch(/nothing new becomes observable/i);
+    await click('[data-action="toggle-drum-walk"]');
+  });
+
+  it('logs timings and runs the journal test on them', async () => {
+    await click('[data-action="tab"][data-tab="lab"]');
+    await waitFor(() => Boolean(document.getElementById('j-walk')), 'journal form');
+
+    for (let i = 1; i <= 10; i++) {
+      (document.getElementById('j-date') as HTMLInputElement).value = `2026-10-${String(i).padStart(2, '0')}`;
+      (document.getElementById('j-walk') as HTMLInputElement).value = String(6 + (i % 7));
+      (document.getElementById('j-shake') as HTMLInputElement).value = '5';
+      (document.getElementById('j-first') as HTMLInputElement).value = String(1 + i * 7);
+      await click('[data-action="journal-add"]');
+    }
+    await waitFor(() => state().journal.length === 10, 'ten timings logged');
+    expect(state().journalReport).toBeTruthy();
+    expect(state().journalReport.entries).toBe(10);
+    await waitFor(() => appText().includes("Cramér's V"), 'journal test rendered');
+    expect(appText()).toMatch(/Inconclusive by design|No detectable link/i);
+    // The summary table reflects the logged rows.
+    expect(appText()).toContain('Mean first ball');
+  });
+
   it('labels the refresh control honestly on a static host', async () => {
     await click('[data-action="tab"][data-tab="deduce"]');
     await waitFor(() => appText().includes('Refresh via GitHub'), 'static refresh label');
@@ -236,7 +340,7 @@ describe('dashboard (static mode)', () => {
   });
 
   it('never leaks undefined, NaN or [object Object] into the DOM', async () => {
-    for (const tab of ['deduce', 'ledger', 'settings']) {
+    for (const tab of ['deduce', 'lab', 'ledger', 'settings']) {
       await click(`[data-action="tab"][data-tab="${tab}"]`);
       await new Promise((resolve) => setTimeout(resolve, 50));
       const html = appHtml();

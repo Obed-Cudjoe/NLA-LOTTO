@@ -17,10 +17,13 @@ import {
   type Draw,
   type EngineConfig,
 } from '../mathEngine';
+import { DEFAULT_MIXING } from '../mixing';
+import { analyseTimingJournal, journalToCsv, type TimingEntry } from '../timingJournal';
+import { analyseDrawOrder } from '../drawOrder';
 import { parsePayload } from '../scraper';
 import * as store from './store';
 import { destroyAllCharts, renderBacktestCharts } from './charts';
-import { renderApp, renderDeduction, renderBacktest, renderLedger, renderSettings } from './views';
+import { renderApp, renderDeduction, renderLab, renderBacktest, renderLedger, renderSettings } from './views';
 import type { AppState, Mode, Tone, View } from './types';
 
 const ui = store.loadUi();
@@ -38,6 +41,10 @@ const state: AppState = {
   view: (ui.view as View) ?? 'deduce',
   deduction: null,
   review: null,
+  order: null,
+  lab: { ...DEFAULT_MIXING, ...(ui.lab ?? {}) },
+  journal: store.loadJournal(),
+  journalReport: null,
   backtest: null,
   backtestOpts: { minTrain: ui.minTrain ?? 25, simulations: ui.simulations ?? 300 },
   settings: store.loadSettings(),
@@ -86,6 +93,8 @@ function toast(text: string, tone: Tone = 'info'): void {
 function panelHtml(): string {
   if (state.error) return renderDeduction(state); // renderApp handles the error panel
   switch (state.view) {
+    case 'lab':
+      return renderLab(state);
     case 'backtest':
       return renderBacktest(state);
     case 'ledger':
@@ -222,6 +231,7 @@ function recompute(): void {
   if (scoped.length < 5) {
     state.deduction = null;
     state.review = null;
+    state.order = null;
     return;
   }
   const config: EngineConfig = {
@@ -231,6 +241,10 @@ function recompute(): void {
   const targetGame = state.game === 'all' ? undefined : state.game;
   state.deduction = deduce(scoped, config, targetGame);
   state.review = reviewLastDraw(scoped, config, targetGame);
+  // First-ball analysis is cheap enough to run on every recompute and is the
+  // only honest test of the "machine timing matters" hypothesis.
+  state.order = analyseDrawOrder(scoped);
+  state.journalReport = analyseTimingJournal(state.journal);
 }
 
 async function reloadData(): Promise<void> {
@@ -617,6 +631,26 @@ function bindEvents(): void {
     };
 
     switch (el.id) {
+      case 'lab-walk':
+        state.lab = { ...state.lab, walkSeconds: Number(el.value) };
+        store.saveUi({ lab: state.lab });
+        render();
+        return;
+      case 'lab-shake':
+        state.lab = { ...state.lab, shakeSeconds: Number(el.value) };
+        store.saveUi({ lab: state.lab });
+        render();
+        return;
+      case 'lab-interval':
+        state.lab = { ...state.lab, interReleaseSeconds: Number(el.value) };
+        store.saveUi({ lab: state.lab });
+        render();
+        return;
+      case 'lab-tau':
+        state.lab = { ...state.lab, tau: Number(el.value) };
+        store.saveUi({ lab: state.lab });
+        render();
+        return;
       case 'lookback':
         state.config.lookback = Math.max(5, Number(el.value));
         setText('lookback-val', String(state.config.lookback));
@@ -679,6 +713,64 @@ async function handleAction(action: string, el: HTMLElement): Promise<void> {
       break;
     case 'run-backtest':
       await runBacktest();
+      break;
+    case 'toggle-drum-walk':
+      state.lab = { ...state.lab, drumRunsDuringWalk: !state.lab.drumRunsDuringWalk };
+      store.saveUi({ lab: state.lab });
+      render();
+      break;
+    case 'journal-add': {
+      const date = (document.getElementById('j-date') as HTMLInputElement | null)?.value ?? '';
+      const walk = Number((document.getElementById('j-walk') as HTMLInputElement | null)?.value);
+      const shake = Number((document.getElementById('j-shake') as HTMLInputElement | null)?.value);
+      const first = Number((document.getElementById('j-first') as HTMLInputElement | null)?.value);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        toast('Pick the draw date first.', 'warn');
+        return;
+      }
+      if (!Number.isFinite(walk) || walk < 0 || walk > 600) {
+        toast('Walk time: seconds from being called to the press (0–600).', 'warn');
+        return;
+      }
+      if (!Number.isInteger(first) || first < 1 || first > 90) {
+        toast('First ball must be a whole number 1–90.', 'warn');
+        return;
+      }
+      const entry: TimingEntry = {
+        draw_date: date,
+        walkSeconds: walk,
+        shakeSeconds: Number.isFinite(shake) ? shake : 0,
+        firstBall: first,
+        game: state.game === 'all' ? undefined : state.game,
+      };
+      const next = [...state.journal.filter((e) => e.draw_date !== date), entry].sort((a, b) =>
+        a.draw_date.localeCompare(b.draw_date)
+      );
+      state.journal = next;
+      store.saveJournal(next);
+      recompute();
+      render();
+      toast(`Logged ${next.length} timing${next.length === 1 ? '' : 's'}. ${next.length < 60 ? 'Keep going — 60+ before the test can say anything.' : ''}`, 'ok');
+      break;
+    }
+    case 'journal-clear':
+      state.journal = [];
+      store.saveJournal([]);
+      recompute();
+      render();
+      toast('Timing journal cleared in this browser.', 'info');
+      break;
+    case 'journal-export':
+      if (!state.journal.length) {
+        toast('Nothing to export yet.', 'warn');
+        break;
+      }
+      store.downloadFile('nla-timings.csv', journalToCsv(state.journal), 'text/csv');
+      break;
+    case 'toggle-loading-known':
+      state.lab = { ...state.lab, loadingKnown: !state.lab.loadingKnown };
+      store.saveUi({ lab: state.lab });
+      render();
       break;
     case 'toggle-advanced':
       state.advanced = !state.advanced;
@@ -827,7 +919,7 @@ async function boot(): Promise<void> {
   }
   try {
     state.mode = await detectMode();
-    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.1.0' };
+    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.2.0' };
     if (!state.settings.ghRepo.trim()) {
       const guess = repoGuess();
       if (guess) {

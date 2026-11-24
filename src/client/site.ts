@@ -438,7 +438,7 @@ export function renderResults(state: AppState): string {
  * ------------------------------------------------------------------------ */
 
 const DRAW_NOTE =
-  'Evening draw. Published times vary between sources — treat the slot as "evening, GMT" and check the NLA page for the exact close.';
+  'Evening draw. Published times vary between sources and the broadcast has moved: GTV (18:45–19:00) until Nov 2021, UTV (19:15–19:30) from Dec 2021, and GTV again from Dec 2025 at 20:00, with Sunday at 18:00. Treat the slot as "evening, GMT" and check the NLA page for the exact close.';
 
 export function renderGames(state: AppState): string {
   const bets = betTypes();
@@ -497,9 +497,10 @@ export function renderGames(state: AppState): string {
         <ol class="mt-2 space-y-2 text-[12px] leading-relaxed text-slate-300">
           <li><b class="text-slate-100">1.</b> Ninety balls, each weighed and sealed into a loading chamber under supervision.</li>
           <li><b class="text-slate-100">2.</b> The drum mixes for a minimum duration set by procedure — air-mix or gravity-pick depending on the machine.</li>
-          <li><b class="text-slate-100">3.</b> Five balls leave, one release at a time, each written down in the order it arrived.</li>
-          <li><b class="text-slate-100">4.</b> Five more follow as machine numbers, drawn from the same ninety.</li>
-          <li><b class="text-slate-100">5.</b> The result is published the same evening. Order matters only for Direct 1.</li>
+          <li><b class="text-slate-100">3.</b> Invited spectators are called out of the audience — reportedly one per ball — and each walks to the release button.</li>
+          <li><b class="text-slate-100">4.</b> Five balls leave, one release at a time, each written down in the order it arrived.</li>
+          <li><b class="text-slate-100">5.</b> Five more follow as machine numbers, drawn from the same ninety.</li>
+          <li><b class="text-slate-100">6.</b> The result is published the same evening. Order matters only for Direct 1.</li>
         </ol>
         <p class="mt-3 text-[11px] leading-relaxed text-slate-400">
           Audited loading and a minimum mixing time are fairness procedures, not randomness guarantees
@@ -727,6 +728,12 @@ export function renderMethod(state: AppState): string {
           <b class="text-slate-100">${n0(walk)}</b> collisions — around
           <b class="text-slate-100">${needed > 0 ? Math.round(walk / needed) : '—'}×</b> what mixing
           needs. Walking slowly therefore makes the draw <em>more</em> uniform, not more readable.
+        </p>
+        <p class="mt-2 text-[11px] leading-relaxed text-slate-400">
+          Spectators are called from the audience during the draw — reportedly one per ball, so a
+          single draw contains five separate walks. No source publishes their duration; the
+          <a href="#/tools/lab" data-action="goto" data-page="tools" data-view="lab" class="text-amber-300 hover:underline">stopwatch
+          in the lab</a> exists so you can time them off the broadcast instead of trusting an estimate.
         </p>
         <a href="#/tools/lab" data-action="goto" data-page="tools" data-view="lab"
           class="mt-3 inline-block text-[12px] font-medium text-amber-300 hover:underline">

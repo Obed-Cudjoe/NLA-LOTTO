@@ -58,6 +58,16 @@ export interface AppState {
   lab: MixingInput;
   /** Timings the player logged themselves (walk seconds, first ball). */
   journal: TimingEntry[];
+  /**
+   * Stopwatch marks taken live from the broadcast. `performance.now()` marks
+   * while running; the finished values in seconds once stopped.
+   */
+  stopwatch: {
+    walkStart: number | null;
+    walkSeconds: number | null;
+    shakeStart: number | null;
+    shakeSeconds: number | null;
+  };
   /** Test of whether walk time predicts the first ball. */
   journalReport: JournalReport | null;
   backtest: BacktestResult | null;

@@ -61,52 +61,38 @@ const TABS: Array<{ id: View; label: string; icon: string }> = [
  * Shell
  * ========================================================================== */
 
-export function renderHeader(state: AppState): string {
-  const draws = state.draws.length;
-  const latest = state.draws[state.draws.length - 1];
-  const next = latest ? state.deduction?.next : null;
+export function renderToolsNav(state: AppState): string {
   const modeBadge =
-    state.mode === 'worker'
-      ? badge('Cloudflare + D1 live', 'ok')
-      : badge('GitHub Pages · static', 'info');
+    state.mode === 'worker' ? badge('Cloudflare + D1', 'ok') : badge('GitHub Pages · static', 'info');
 
   return `
-  <header class="border-b border-white/10 bg-gradient-to-br from-[#0b1020] via-[#0d1526] to-[#0a0f1c]">
-    <div class="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
-      <div class="flex items-center gap-3">
-        <div class="flag-mark" aria-hidden="true">
-          <span class="bg-[#ce1126]"></span><span class="bg-[#fcd116]"></span>
-          <span class="bg-[#006b3f]"></span><span class="bg-black"></span>
-        </div>
-        <div>
-          <h1 class="text-base font-semibold leading-tight text-slate-50 sm:text-lg">
-            Ghana NLA 5/90 <span class="text-amber-300">Deduction Engine</span>
-          </h1>
-          <p class="text-[11px] text-slate-400">
-            ${draws} draws stored · ${esc(latest ? formatDrawDate(latest.draw_date) : 'no data yet')}
-            ${next ? ` · next: <span class="text-slate-300">${esc(next.label)}</span>` : ''}
-          </p>
-        </div>
+  <div class="border-b border-white/10 bg-[#0b1020]/80">
+    <div class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-2">
+      <div class="flex items-center gap-2">
+        <a href="#/" data-action="goto" data-page="home"
+          class="text-[11px] text-slate-400 hover:text-slate-200">← Back to the site</a>
+        <span class="text-slate-600" aria-hidden="true">·</span>
+        <span class="text-[10px] uppercase tracking-[0.14em] text-slate-500">The tool</span>
       </div>
       <div class="flex flex-wrap items-center gap-2">
         ${modeBadge}
         ${state.lastSync ? badge(`synced ${state.lastSync}`, 'muted') : ''}
-        <button data-action="refresh" class="btn btn-primary" type="button"
+        <button data-action="refresh" class="btn btn-ghost" type="button"
           title="${state.mode === 'static' ? 'Static site: dispatches the GitHub Actions refresh (needs a token in the Data tab)' : 'Fetch the latest results from the source and store them in D1'}">
-          <span class="text-base leading-none">↻</span> ${state.mode === 'static' ? 'Refresh via GitHub' : 'Refresh Latest Results'}
+          <span class="text-base leading-none">↻</span> ${state.mode === 'static' ? 'Refresh via GitHub' : 'Refresh results'}
         </button>
       </div>
     </div>
-    <nav class="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-3 pb-1">
+    <nav class="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-3 pb-1" aria-label="Tool sections">
       ${TABS.map(
         (t) => `
-        <button type="button" data-action="tab" data-tab="${t.id}"
-          class="tab ${state.view === t.id ? 'tab-active' : ''}">
+        <a href="#/tools/${t.id}" data-action="tab" data-tab="${t.id}" data-page="tools"
+          class="tab ${state.view === t.id ? 'tab-active' : ''}"${state.view === t.id ? ' aria-current="page"' : ''}>
           <span class="opacity-70">${t.icon}</span> ${t.label}
-        </button>`
+        </a>`
       ).join('')}
     </nav>
-  </header>`;
+  </div>`;
 }
 
 /* ==========================================================================
@@ -1255,7 +1241,13 @@ export function renderBacktest(state: AppState): string {
  * Ledger view
  * ========================================================================== */
 
-export function renderLedger(state: AppState): string {
+export function renderLedger(
+  state: AppState,
+  options: { tools?: boolean } = {}
+): string {
+  // `tools: false` gives the public results page: the same table, without the
+  // import, sync and delete machinery, which belongs on the working bench.
+  const withTools = options.tools !== false;
   // The ledger is the audit trail, not an analysis view: it always lists every
   // game, whatever the deduction filter is set to. Search narrows it instead.
   const filtered = state.draws
@@ -1271,11 +1263,10 @@ export function renderLedger(state: AppState): string {
     .sort((a, b) => b.draw_date.localeCompare(a.draw_date));
 
   const shown = filtered.slice(0, state.ledgerLimit);
+  const heading = withTools ? 'Historical ledger' : 'Draw history';
   const localDates = new Set(state.overlay.map((d) => d.draw_date));
 
-  return `
-  <div class="mx-auto max-w-7xl space-y-4 px-4 py-4">
-    <div class="grid gap-4 lg:grid-cols-3">
+  const importCards = `    <div class="grid gap-4 lg:grid-cols-3">
       ${card(`
         <h2 class="text-sm font-semibold text-slate-100">Add a draw manually</h2>
         <p class="text-[10px] text-slate-500">${state.mode === 'worker' ? 'Saved straight into D1 via POST /api/draws.' : 'Saved to this browser, then push it to GitHub.'}</p>
@@ -1353,11 +1344,15 @@ export function renderLedger(state: AppState): string {
             : 'Static hosting: commit the downloaded JSON to <code>data/draws.json</code>, or connect a GitHub token in the Data tab and push with one click.'}
         </p>
       `)}
-    </div>
+    </div>`;
+
+  return `
+  <div class="mx-auto max-w-7xl space-y-4 px-4 py-4">
+    ${withTools ? importCards : ''}
 
     ${card(`
       <div class="flex flex-wrap items-center justify-between gap-2">
-        <h2 class="text-sm font-semibold text-slate-100">Historical ledger <span class="text-slate-500">(${filtered.length} draws, all games)</span></h2>
+        <h2 class="text-sm font-semibold text-slate-100">${heading} <span class="text-slate-500">(${filtered.length} draws, all games)</span></h2>
         <input id="search" type="search" value="${esc(state.search)}" placeholder="Search date, game or number…"
           class="w-full rounded-lg border border-white/10 bg-black/30 px-2.5 py-1.5 text-xs text-slate-200 outline-none focus:border-amber-400/50 sm:w-64" />
       </div>
@@ -1549,39 +1544,29 @@ export function renderBusy(state: AppState): string {
 
 export function renderFooter(state: AppState): string {
   return `
-  <footer class="mx-auto max-w-7xl px-4 pb-8 pt-2 text-[10px] leading-relaxed text-slate-500">
-    <p>
-      Ghana NLA 5/90 Mathematical &amp; Logical Deduction Engine v${esc(state.health?.version ?? '1.0.0')} ·
-      ${state.mode === 'worker' ? 'Cloudflare Worker + D1' : 'static build'} ·
-      built for personal quantitative analysis.
+  <footer class="mx-auto max-w-6xl px-4 pb-10 pt-8 text-[10px] leading-relaxed text-slate-500">
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-white/5 pt-4">
+      <span class="font-medium text-slate-400">Ghana NLA 5/90</span>
+      <span aria-hidden="true">·</span>
+      <span>v${esc(state.health?.version ?? '1.3.0')}</span>
+      <span aria-hidden="true">·</span>
+      <span>${state.mode === 'worker' ? 'Cloudflare Worker + D1' : 'static build — runs entirely in your browser'}</span>
+      <span aria-hidden="true">·</span>
+      <a href="#/method" data-action="goto" data-page="method" class="hover:text-slate-300">method</a>
+      <span aria-hidden="true">·</span>
+      <a href="#/smart" data-action="goto" data-page="smart" class="hover:text-slate-300">payouts</a>
+      <span aria-hidden="true">·</span>
+      <a href="#/tools" data-action="goto" data-page="tools" class="hover:text-slate-300">the tool</a>
+    </div>
+    <p class="mt-2 max-w-3xl">
+      An independent reading of the NLA 5/90 games. Not affiliated with, endorsed by or connected to the
+      National Lottery Authority of Ghana. Numbers shown here are
+      ${state.mode === 'worker' ? 'the archive you have stored' : 'a locally stored dataset'} — verify every
+      result against the official NLA publication before acting on it.
     </p>
     <p class="mt-1">
-      Not affiliated with the National Lottery Authority of Ghana. Numbers listed here are
-      ${state.mode === 'worker' ? 'your stored history' : 'your local dataset'} — verify every result against the
-      official NLA publication before acting on it. Play within your means; if gambling stops being fun, seek help.
+      No method on this site raises your chance of winning, and no ticket listed here returns more than it
+      costs. Play within your means; if gambling stops being fun, stop and talk to someone.
     </p>
   </footer>`;
-}
-
-export function renderApp(state: AppState): string {
-  let panel: string;
-  if (state.error) {
-    panel = card(`
-      <div class="py-8 text-center">
-        <p class="text-sm text-rose-300">${esc(state.error)}</p>
-        <button type="button" data-action="reload" class="btn btn-primary mt-3">Retry</button>
-      </div>`);
-  } else if (state.view === 'lab') panel = renderLab(state);
-  else if (state.view === 'backtest') panel = renderBacktest(state);
-  else if (state.view === 'ledger') panel = renderLedger(state);
-  else if (state.view === 'settings') panel = renderSettings(state);
-  else panel = renderDeduction(state);
-
-  return `
-    ${renderHeader(state)}
-    ${renderControls(state)}
-    <main id="panel">${panel}</main>
-    ${renderFooter(state)}
-    ${renderToast(state)}
-    ${renderBusy(state)}`;
 }

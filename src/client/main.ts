@@ -23,13 +23,14 @@ import { analyseDrawOrder } from '../drawOrder';
 import { parsePayload } from '../scraper';
 import * as store from './store';
 import { destroyAllCharts, renderBacktestCharts } from './charts';
-import { renderApp, renderDeduction, renderLab, renderBacktest, renderLedger, renderSettings } from './views';
-import type { AppState, Mode, Tone, View } from './types';
+import { renderSite, renderPanelContent, hashFor, routeFromHash } from './site';
+import type { AppState, Mode, Page, Tone, View } from './types';
 
 const ui = store.loadUi();
 
 const state: AppState = {
   mode: 'static',
+  page: 'home',
   health: null,
   draws: [],
   overlay: store.loadOverlay(),
@@ -42,6 +43,7 @@ const state: AppState = {
   deduction: null,
   review: null,
   order: null,
+  orderAll: null,
   lab: { ...DEFAULT_MIXING, ...(ui.lab ?? {}) },
   journal: store.loadJournal(),
   journalReport: null,
@@ -90,27 +92,19 @@ function toast(text: string, tone: Tone = 'info'): void {
  * Rendering
  * ========================================================================== */
 
+/**
+ * The site shell is rebuilt on navigation; only the panel is replaced during
+ * slider drags so focus and scroll position survive.
+ */
 function panelHtml(): string {
-  if (state.error) return renderDeduction(state); // renderApp handles the error panel
-  switch (state.view) {
-    case 'lab':
-      return renderLab(state);
-    case 'backtest':
-      return renderBacktest(state);
-    case 'ledger':
-      return renderLedger(state);
-    case 'settings':
-      return renderSettings(state);
-    default:
-      return renderDeduction(state);
-  }
+  return renderPanelContent(state);
 }
 
 function render(): void {
   const app = $('#app');
   if (!app) return;
   destroyAllCharts();
-  app.innerHTML = renderApp(state);
+  app.innerHTML = renderSite(state);
   if (state.view === 'backtest' && state.backtest) {
     requestAnimationFrame(() => {
       try {
@@ -232,6 +226,7 @@ function recompute(): void {
     state.deduction = null;
     state.review = null;
     state.order = null;
+    state.orderAll = analyseDrawOrder(state.draws);
     return;
   }
   const config: EngineConfig = {
@@ -244,6 +239,9 @@ function recompute(): void {
   // First-ball analysis is cheap enough to run on every recompute and is the
   // only honest test of the "machine timing matters" hypothesis.
   state.order = analyseDrawOrder(scoped);
+  // The method page reports the whole archive, not the selected game, so say
+  // 60 draws rather than the 10 a single weekday happens to hold.
+  state.orderAll = analyseDrawOrder(state.draws);
   state.journalReport = analyseTimingJournal(state.journal);
 }
 
@@ -570,6 +568,37 @@ function exportAll(format: 'json' | 'csv'): void {
 }
 
 /* ==========================================================================
+ * Routing
+ *
+ * The site is a set of real addresses (`#/results`, `#/tools/lab`), not just
+ * client-side state: links can be shared, the back button works, and a
+ * bookmark lands on the section that was open.
+ * ========================================================================== */
+
+function applyRoute(forceRender = false): void {
+  const { page, view } = routeFromHash(window.location.hash);
+  const nextView = page === 'tools' && view ? (view as View) : state.view;
+  const changed = state.page !== page || state.view !== nextView;
+  state.page = page;
+  state.view = nextView;
+  if (page === 'tools') store.saveUi({ view: state.view });
+  if (forceRender || changed) render();
+}
+
+function navigate(page: Page, view?: View): void {
+  const target = hashFor(page, view);
+  if (window.location.hash !== target) {
+    try {
+      window.history.pushState(null, '', target);
+    } catch {
+      window.location.hash = target;
+    }
+  }
+  applyRoute(true);
+  if (page === 'tools' && state.view === 'backtest' && !state.backtest) void runBacktest();
+}
+
+/* ==========================================================================
  * Event wiring (delegated so re-renders never lose handlers)
  * ========================================================================== */
 
@@ -578,8 +607,14 @@ function bindEvents(): void {
     const target = (event.target as HTMLElement | null)?.closest<HTMLElement>('[data-action]');
     if (!target) return;
     const action = target.dataset.action ?? '';
+    // Navigation is handled here: anchors keep their href for copy/paste and
+    // middle-click, but a plain click routes without a page reload.
+    if (action === 'goto') event.preventDefault();
     void handleAction(action, target);
   });
+
+  window.addEventListener('hashchange', () => applyRoute());
+  window.addEventListener('popstate', () => applyRoute());
 
   document.addEventListener('submit', (event) => {
     event.preventDefault();
@@ -695,10 +730,31 @@ function bindEvents(): void {
 
 async function handleAction(action: string, el: HTMLElement): Promise<void> {
   switch (action) {
+    case 'goto': {
+      navigate((el.dataset.page as Page) ?? 'home', el.dataset.view as View | undefined);
+      break;
+    }
+    case 'pick-game': {
+      state.game = el.dataset.game ?? 'all';
+      store.saveUi({ game: state.game });
+      state.backtest = null;
+      recompute();
+      render();
+      break;
+    }
     case 'tab': {
       const view = (el.dataset.tab as View) ?? 'deduce';
+      state.page = 'tools';
       state.view = view;
       store.saveUi({ view });
+      const target = hashFor('tools', view);
+      if (window.location.hash !== target) {
+        try {
+          window.history.pushState(null, '', target);
+        } catch {
+          /* jsdom without history support — state still routes */
+        }
+      }
       if (view === 'backtest' && !state.backtest) {
         render();
         await runBacktest();
@@ -919,7 +975,7 @@ async function boot(): Promise<void> {
   }
   try {
     state.mode = await detectMode();
-    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.2.0' };
+    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.3.0' };
     if (!state.settings.ghRepo.trim()) {
       const guess = repoGuess();
       if (guess) {
@@ -929,7 +985,7 @@ async function boot(): Promise<void> {
     }
     await loadDraws();
     recompute();
-    render();
+    applyRoute(true);
     if (!state.draws.length) {
       toast('No draws loaded. Import results in the Ledger tab, or check data/draws.json.', 'warn');
     }

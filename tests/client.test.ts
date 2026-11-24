@@ -406,6 +406,11 @@ describe('dashboard (static mode)', () => {
     expect(appText()).toContain('House keeps');
     expect(appText()).toContain('Coverage buys odds, not edge');
 
+    // A 50% chance is purchasable — and the price is stated plainly.
+    await waitFor(() => appText().includes('What 50/50 actually costs'), 'confidence cost table');
+    expect(appText()).toContain('30,463,311');
+    expect(appText()).toMatch(/−30,432,813|−30,4/);
+
     await click('[data-action="goto"][data-page="results"]');
     await waitFor(() => appText().includes('Every draw we hold'), 'results page');
     expect(window.location.hash).toBe('#/results');
@@ -490,6 +495,12 @@ describe('dashboard (static mode)', () => {
   });
 
   it('locks the line for the draw and keeps a scoreable record of it', async () => {
+    // A line can only be locked for a draw that has not been held yet, so move
+    // the target to tomorrow — this test must not depend on the hour it runs.
+    const day = (offset: number): string =>
+      new Date(Date.now() + offset * 86_400_000).toISOString().slice(0, 10);
+    state().deduction.next = { ...state().deduction.next, date: day(1) };
+
     await click('[data-action="goto"][data-page="tonight"]');
     await waitFor(() => appText().includes('The line for this draw'), 'line card');
 
@@ -517,5 +528,16 @@ describe('dashboard (static mode)', () => {
     await click('[data-action="lock-pick"]');
     await waitFor(() => appText().includes('Re-lock this line'), 're-lock affordance');
     expect(state().pickBook.filter((p: { draw_date: string }) => p.draw_date === rec.draw_date)).toHaveLength(1);
+
+    // Once the draw has been held, locking is not allowed: it would be hindsight.
+    state().deduction.next = { ...state().deduction.next, date: day(-1) };
+    state().pickBook = [];
+    await click('[data-action="goto"][data-page="tonight"]');
+    await waitFor(() => appText().includes('Draw already held'), 'past-draw guard');
+    const lockBtn = document.querySelector('[data-action="lock-pick"]') as HTMLButtonElement;
+    expect(lockBtn.disabled).toBe(true);
+    expect(appText()).toContain('Locking now would be hindsight');
+    await click('[data-action="lock-pick"]');
+    expect(state().pickBook).toHaveLength(0);
   });
 });

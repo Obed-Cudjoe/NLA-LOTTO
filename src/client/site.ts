@@ -9,9 +9,9 @@
 import { GAME_WEEKDAY, GAMES } from '../types';
 import { formatDrawDate } from '../mathEngine';
 import { betTypes, coverage, linesForConfidence } from '../bets';
-import { scorePickBook } from '../pickBook';
+import { isDrawPast, scorePickBook } from '../pickBook';
 import { collisionsDuringWalk, collisionsToMix, effectiveMixSeconds } from '../mixing';
-import { badge, balls, card, drawWhen, esc, pct, stat, targetHeading } from './format';
+import { badge, balls, card, drawWhen, esc, pct, stat, targetHeading, tinyPct } from './format';
 import {
   renderBacktest,
   renderBusy,
@@ -414,6 +414,9 @@ function lineCard(state: AppState): string {
   const locked = state.pickBook.find(
     (p) => p.draw_date === d.next.date && p.game.toLowerCase() === d.next.game.toLowerCase()
   );
+  // A line locked after the draw is not a prediction. The button goes dead once
+  // the evening window has closed and the result is not yet stored.
+  const past = isDrawPast(d.next.date);
 
   const row = (label: string, numbers: number[], big: boolean, bets: string[], note: string): string => `
     <div class="rounded-xl border border-white/10 bg-black/20 p-3">
@@ -438,27 +441,31 @@ function lineCard(state: AppState): string {
           built from ${n0(d.meta.drawsUsed)} stored draws of this game
         </p>
       </div>
-      ${badge(locked ? 'locked' : 'not locked yet', locked ? 'ok' : 'warn')}
+      ${badge(locked ? 'locked' : past ? 'draw already held' : 'not locked yet', locked ? 'ok' : past ? 'muted' : 'warn')}
     </div>
 
     <div class="mt-3 grid gap-2">
       ${row('Perm 5 / Direct 5 — all five, any order', five, true, [
         perm ? `pays ${perm.multiplier.toLocaleString()}×` : 'pays 44,000×',
         perm ? `1 in ${n0(perm.oneIn)}` : '1 in 43,949,268',
+        perm ? `${tinyPct(perm.probability)} per draw` : '',
       ], 'Play it as a perm and every order of these five is covered. One winning line still returns less than it costs, on average.')}
       ${row('2-Sure — both must be drawn', pair, false, [
         two ? `pays ${two.multiplier.toLocaleString()}×` : 'pays 240×',
         two ? `1 in ${n0(two.oneIn)}` : '1 in 401',
+        two ? `${pct(two.probability, 2)} per draw` : '',
       ], 'The least-bad ticket on the board: it returns about 0.60 per 1.00 staked, so it loses slowly rather than quickly.')}
       ${row('3-Direct — all three must be drawn', trio, false, [
         three ? `pays ${three.multiplier.toLocaleString()}×` : 'pays 2,100×',
         three ? `1 in ${n0(three.oneIn)}` : '1 in 11,748',
+        three ? `${pct(three.probability, 3)} per draw` : '',
       ], 'A long shot, kept because it is the same three numbers the engine ranks highest.')}
     </div>
 
     <div class="mt-3 flex flex-wrap items-center gap-2">
-      <button type="button" data-action="lock-pick" class="btn btn-primary">
-        ${locked ? 'Re-lock this line' : 'Lock this line before the draw'}
+      <button type="button" data-action="lock-pick" class="btn btn-primary"
+        ${past && !locked ? 'disabled title="This draw has already been held — locking now would be hindsight"' : ''}>
+        ${locked ? 'Re-lock this line' : past ? 'Draw already held' : 'Lock this line before the draw'}
       </button>
       <button type="button" data-action="export-picks" class="btn btn-ghost"
         ${state.pickBook.length ? '' : 'disabled'}>Export the book (CSV)</button>
@@ -469,7 +476,9 @@ function lineCard(state: AppState): string {
       ${
         locked
           ? `Locked ${esc(new Date(locked.locked_at).toLocaleString('en-GB'))} — before the result, so the record cannot be rewritten afterwards.`
-          : 'Locking stores these numbers with a timestamp in this browser. It changes nothing about the odds; it just means the line is on record before the drum runs.'
+          : past
+            ? `The ${esc(d.next.game)} draw for ${esc(d.next.date)} has already been held and its result is not stored yet. Locking now would be hindsight, so it is disabled: refresh the results first, and the app will move on to the next draw.`
+            : 'Locking stores these numbers with a timestamp in this browser. It changes nothing about the odds; it just means the line is on record before the drum runs.'
       }
     </p>
     <p class="mt-1 text-[10px] leading-snug text-slate-500">
@@ -755,6 +764,52 @@ export function renderSmart(state: AppState): string {
           Coverage is a decision about variance and drama. It is not a decision about profitability —
           there is no set of lines, and no picking method, that turns a 0.60-return ticket into a
           1.00-return one.
+        </p>`)}
+
+      ${card(`
+        <h2 class="text-sm font-semibold text-slate-100">What 50/50 actually costs</h2>
+        <p class="mt-2 text-[12px] leading-relaxed text-slate-300">
+          A 50% chance is not a fantasy — it is a purchase. Buy enough lines and you can hold
+          any probability you like. What you cannot buy is a good price, because every extra
+          line carries the same negative expected value as the first.
+        </p>
+        <div class="mt-2 overflow-x-auto">
+          <table class="w-full min-w-[420px] text-left text-[11px]">
+            <thead class="text-[10px] uppercase tracking-wide text-slate-500">
+              <tr><th class="py-1 pr-2">Ticket</th><th class="py-1 pr-2">Chance you hold the winning line</th>
+                <th class="py-1 pr-2">Lines</th><th class="py-1 pr-2">Stake</th>
+                <th class="py-1 pr-2">Expected back</th><th class="py-1">Net</th></tr>
+            </thead>
+            <tbody>
+              ${[0.5, 0.9]
+                .flatMap((target) =>
+                  ['direct2', 'direct3', 'direct5'].map((id) => {
+                    const bet = betTypes().find((b) => b.id === id)!;
+                    const lines = linesForConfidence(bet.id, target);
+                    const cov = coverage({ betId: bet.id, lines, stakePerLine: 1 });
+                    return `<tr class="border-t border-white/5">
+                      <td class="py-1 pr-2 text-slate-200">${esc(bet.label)}</td>
+                      <td class="py-1 pr-2 text-slate-400">${(target * 100).toFixed(0)}%</td>
+                      <td class="py-1 pr-2 text-slate-300">${n0(lines)}</td>
+                      <td class="py-1 pr-2 text-slate-300">${n0(cov.totalStake)}</td>
+                      <td class="py-1 pr-2 text-slate-300">${n0(cov.expectedReturnValue)}</td>
+                      <td class="py-1 font-semibold text-rose-300">−${n0(Math.abs(cov.netPerPlay))}</td>
+                    </tr>`;
+                  })
+                )
+                .join('')}
+            </tbody>
+          </table>
+        </div>
+        <p class="mt-2 text-[11px] leading-relaxed text-slate-400">
+          Read the last column: the certainty is real, and it is paid for up front. A 50% chance at
+          a 2-Sure prize means staking 278 units to hold a 50% shot at 240 — an average loss of 111
+          whichever way the draw falls. For the five-number line the same 50% costs about
+          30.5 million units for an expected 30,498 back.
+        </p>
+        <p class="mt-2 text-[11px] leading-relaxed text-slate-500">
+          This is why "high chance" and "high chance of profit" are different sentences. The draw
+          cannot be beaten; the stake can be decided.
         </p>`)}
 
       ${card(`

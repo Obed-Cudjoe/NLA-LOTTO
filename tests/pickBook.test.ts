@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   PAIR_CHANCE,
+  isDrawPast,
   emptyReport,
   lockPick,
   pickBookToCsv,
@@ -89,6 +90,19 @@ describe('pick book', () => {
     expect(rows[0].pair_hit).toBe(false);
     expect(report.matches).toBe(0);
     expect(report.expectedMatches).toBeCloseTo(0.2778, 4);
+  });
+
+  it('refuses to treat a past draw as lockable', () => {
+    // 24 Nov 2026, 20:29 GMT — still before the close.
+    expect(isDrawPast('2026-11-24', Date.parse('2026-11-24T20:29:00Z'))).toBe(false);
+    // 20:30 GMT — the draw is over.
+    expect(isDrawPast('2026-11-24', Date.parse('2026-11-24T20:30:00Z'))).toBe(true);
+    // Next day is definitely past.
+    expect(isDrawPast('2026-11-24', Date.parse('2026-11-25T09:00:00Z'))).toBe(true);
+    // A future draw is not.
+    expect(isDrawPast('2026-11-25', Date.parse('2026-11-24T22:00:00Z'))).toBe(false);
+    // Garbage dates never block a lock.
+    expect(isDrawPast('not-a-date')).toBe(false);
   });
 
   it('states the expected rates the record is measured against', () => {

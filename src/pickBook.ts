@@ -61,6 +61,20 @@ export const TRIO_CHANCE = 10 / 117480; // C(5,3)/C(90,3) = 1 in 11,748
 /** Chance a specific five-number line is the drawn five. */
 export const FIVE_CHANCE = 1 / 43949268;
 
+/**
+ * The evening window closes at 20:30 GMT (the draw moved to 20:00 on GTV in
+ * Dec 2025; before that it was 19:15). After that, locking a line is no longer a
+ * prediction — it is hindsight, and the record would be worthless.
+ */
+export const DRAW_CLOSE_UTC_MINUTES = 20 * 60 + 30;
+
+/** Has the draw for `dateIso` already taken place? */
+export function isDrawPast(dateIso: string, now: number = Date.now()): boolean {
+  const close = Date.parse(`${dateIso}T00:00:00Z`);
+  if (!Number.isFinite(close)) return false;
+  return now >= close + DRAW_CLOSE_UTC_MINUTES * 60_000;
+}
+
 export function emptyReport(): PickBookReport {
   return {
     locked: 0,

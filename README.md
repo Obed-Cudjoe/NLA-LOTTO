@@ -142,6 +142,23 @@ Two consequences the app states plainly:
   for an expected return of about 30,500. It can win, and somebody does; the
   arithmetic of what "likely" costs is on the card.
 
+### "Can our chance be high, or 50/50?"
+
+A 50% chance is purchasable; it is not an edge. Buying enough lines gives you any probability
+you want, at the same negative expected value per line:
+
+| Ticket | Chance you hold the winning line | Lines | Stake | Expected back | Net |
+|---|---|---|---|---|---|
+| Direct 2 | 50% | 278 | 278 | 167 | **−111** |
+| Direct 2 | 90% | 922 | 922 | 553 | −369 |
+| Direct 3 | 50% | 8,143 | 8,143 | 1,456 | −6,687 |
+| Direct 5 | 50% | 30,463,311 | 30,463,311 | 30,498 | −30,432,813 |
+
+These numbers are computed live on the Play smart page from the published multipliers and the
+exact hypergeometric chances — no assumptions. They are the arithmetic answer to "high chance":
+certainty is for sale, and it is paid for in guaranteed average loss. Per draw, the committed
+line's chances are 0.25% (2-Sure), 0.0085% (3-Direct) and 0.0000023% (five numbers).
+
 ### The committed line (`src/pickBook.ts`)
 
 From 1.5.0 the Tonight page states, for every draw, three things and one timestamp:
@@ -159,6 +176,12 @@ lines, one 3-Direct hit per 11,748). The verdict is fixed in advance: under 20 r
 draws it says nothing; at 20+ it compares observed hits with those expectations and says
 where the book stands, including when it is below chance. CSV export carries the scoring
 columns so the arithmetic can be checked outside the app.
+
+A line can only be locked **before** its draw. Once the evening window has closed (20:30 GMT),
+the button is disabled and the app says why: a line locked after the result is hindsight, not a
+prediction, and the record would be worthless. If the archive is behind — the result exists but
+the refresh has not fetched it — the page says that too, instead of calling a finished draw
+"tonight's".
 
 The point is not that the line is lucky. It is that the line is **checkable**. A reader
 can see what was said, when, and what happened — which is the only claim this project

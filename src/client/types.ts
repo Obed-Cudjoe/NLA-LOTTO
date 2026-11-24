@@ -5,7 +5,10 @@ import type { MixingInput } from '../mixing';
 import type { JournalReport, TimingEntry } from '../timingJournal';
 
 export type Mode = 'worker' | 'static';
+/** A tab inside "the tool". */
 export type View = 'deduce' | 'lab' | 'backtest' | 'ledger' | 'settings';
+/** A page of the public site. */
+export type Page = 'home' | 'tonight' | 'results' | 'games' | 'smart' | 'method' | 'tools';
 export type Tone = 'ok' | 'bad' | 'info' | 'warn';
 
 export interface Health {
@@ -34,6 +37,8 @@ export interface Settings {
 
 export interface AppState {
   mode: Mode;
+  /** Which section of the site is showing. The tool is one of them. */
+  page: Page;
   health: Health | null;
   /** Every draw the app knows about, all games, chronological. */
   draws: Draw[];
@@ -45,8 +50,10 @@ export interface AppState {
   deduction: Deduction | null;
   /** What the engine said before the newest stored draw, vs what came out. */
   review: LastDrawReview | null;
-  /** First-ball (order) analysis of the archive — the machine-bias test. */
+  /** First-ball (order) analysis of the selected game(s) — the machine-bias test. */
   order: OrderReport | null;
+  /** The same test over every stored draw, regardless of the game filter. */
+  orderAll: OrderReport | null;
   /** Drum-timing simulator inputs. */
   lab: MixingInput;
   /** Timings the player logged themselves (walk seconds, first ball). */

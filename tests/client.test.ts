@@ -72,8 +72,13 @@ describe('dashboard (static mode)', () => {
     installFetchStub();
     await import('../src/client/main');
 
-    // Wait for the real boot sequence: data loaded → deduction rendered.
+    // Wait for the real boot sequence: data loaded → the public home page.
     await waitFor(() => Boolean(state()?.deduction), 'engine to produce a deduction');
+    await waitFor(() => appText().includes('The draw is random'), 'home page to render');
+    // The tool is a section now, not the front door: open it, then pick a tab.
+    await click('a[data-action="goto"][data-page="tools"]');
+    await waitFor(() => Boolean(document.querySelector('[data-action="tab"][data-tab="deduce"]')), 'tool tabs');
+    await click('[data-action="tab"][data-tab="deduce"]');
     await waitFor(() => /(Tonight's|Next) draw — /.test(appText()), 'deduction tab to render');
   }, 60_000);
 
@@ -365,5 +370,80 @@ describe('dashboard (static mode)', () => {
     const app = document.getElementById('app')!;
     expect(app.querySelectorAll('img[src="x"]').length).toBe(0);
     expect(app.textContent).toContain('<img src=x onerror=alert(1)>');
+  });
+
+  it('lands on a home page that reads like a website, not an instrument panel', async () => {
+    await click('[data-action="goto"][data-page="home"]');
+    await waitFor(() => appText().includes('The draw is random'), 'home hero');
+
+    expect(window.location.hash).toBe('#/');
+    // Sections are real links.
+    expect(document.querySelectorAll('.nav-link').length).toBeGreaterThanOrEqual(12);
+    expect(document.querySelectorAll('.feature-card').length).toBe(4);
+    // Marketing copy, not model internals.
+    expect(appText()).toContain('Results archive');
+    expect(appText()).toContain('Ticket arithmetic');
+    expect(appText()).toContain('What we won\'t tell you');
+    expect(appText()).not.toContain('Full pillar ranking');
+    expect(appText()).not.toContain('Score entropy');
+    expect(appText()).not.toContain('Markov shrinkage');
+    // The next draw still shows real numbers, plainly.
+    expect(document.querySelectorAll('.hero-ball').length).toBe(5);
+  });
+
+  it('gives every section its own address', async () => {
+    await click('[data-action="goto"][data-page="games"]');
+    await waitFor(() => appText().includes('Six games, one a day'), 'games page');
+    expect(window.location.hash).toBe('#/games');
+    for (const game of ['Monday Special', 'Lucky Tuesday', 'Midweek', 'Fortune Thursday', 'Friday Bonanza', 'National Weekly']) {
+      expect(appText()).toContain(game);
+    }
+
+    await click('[data-action="goto"][data-page="smart"]');
+    await waitFor(() => appText().includes('Every ticket loses money'), 'play-smart page');
+    expect(window.location.hash).toBe('#/smart');
+    expect(appText()).toContain('Direct 2');
+    expect(appText()).toContain('House keeps');
+    expect(appText()).toContain('Coverage buys odds, not edge');
+
+    await click('[data-action="goto"][data-page="results"]');
+    await waitFor(() => appText().includes('Every draw we hold'), 'results page');
+    expect(window.location.hash).toBe('#/results');
+
+    await click('[data-action="goto"][data-page="method"]');
+    await waitFor(() => appText().includes('The first-ball test'), 'method page');
+    expect(window.location.hash).toBe('#/method');
+    expect(appText()).toMatch(/consistent with a fair drum|unusual skew/);
+    expect(appText()).toContain('What would change our mind');
+  });
+
+  it('keeps the working bench behind the tool door', async () => {
+    await click('[data-action="goto"][data-page="home"]');
+    await waitFor(() => appText().includes('The draw is random'), 'home again');
+    await click('[data-action="goto"][data-page="tools"]');
+    await waitFor(() => appText().includes('This is the working bench'), 'tool page');
+    // The sliders, the game filter and the tab strip only exist in here.
+    expect(document.getElementById('game-select')).toBeTruthy();
+    expect(document.querySelectorAll('.tab').length).toBe(5);
+    expect(window.location.hash.startsWith('#/tools')).toBe(true);
+  });
+
+  it('switches game from the public chips without the control bar', async () => {
+    await click('[data-action="goto"][data-page="tonight"]');
+    await waitFor(() => appText().includes('Tonight'), 'tonight page');
+    expect(document.getElementById('game-select')).toBeNull();
+    await click('[data-action="pick-game"][data-game="Friday Bonanza"]');
+    await waitFor(() => state().game === 'Friday Bonanza', 'game switched by chip');
+    expect(appText()).toContain('Friday Bonanza');
+  });
+
+  it('never leaks undefined, NaN or [object Object] into any site page', async () => {
+    for (const page of ['home', 'tonight', 'results', 'games', 'smart', 'method']) {
+      await click(`[data-action="goto"][data-page="${page}"]`);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const text = appText();
+      expect(text.length, `${page} rendered something`).toBeGreaterThan(200);
+      expect(text, `${page} has no broken interpolation`).not.toMatch(/undefined|NaN|\[object Object\]/);
+    }
   });
 });

@@ -11,7 +11,11 @@ name: Refresh draw results
 
 on:
   schedule:
-    - cron: '0 21 * * *'
+    # Draws land at 20:00 GMT Mon–Sat (18:00 on Sunday) and results surface a few
+    # minutes later. GitHub's scheduler silently skips runs — it did on 23 and 24
+    # Nov 2026 — so instead of betting on one 21:00 slot we try every hour through
+    # the evening. Nothing new found means no commit, so the extra runs are free.
+    - cron: '15 18,19,20,21,22,23 * * *'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -72,3 +76,12 @@ jobs:
         run: |
           echo "### Data refresh finished" >> "$GITHUB_STEP_SUMMARY"
           echo "Source(s): \`${{ vars.RESULTS_SOURCE_URL || 'default list' }}\`" >> "$GITHUB_STEP_SUMMARY"
+          TODAY=$(date -u +%F)
+          LATEST=$(node -e "const d=require('./data/draws.json');console.log(d[d.length-1].draw_date)")
+          echo "Latest stored draw: \`$LATEST\` · today (UTC): \`$TODAY\`" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$LATEST" \< "$TODAY" ]; then
+            echo ":warning: Today's result is **not stored yet** — the site will say so, and the" >> "$GITHUB_STEP_SUMMARY"
+            echo "next scheduled attempt picks it up." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo ":white_check_mark: The archive is current — the site's target has rolled forward." >> "$GITHUB_STEP_SUMMARY"
+          fi

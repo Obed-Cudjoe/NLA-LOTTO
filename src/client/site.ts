@@ -402,6 +402,11 @@ export function renderHome(state: AppState): string {
  * model would like.
  * ------------------------------------------------------------------------ */
 
+/** Expected return, with enough decimals to distinguish 0.0010 from 0.00. */
+function evLabel(ev: number): string {
+  return ev >= 0.01 ? ev.toFixed(2) : ev.toFixed(4);
+}
+
 function lineCard(state: AppState): string {
   const d = state.deduction;
   if (!d) return '';
@@ -840,8 +845,8 @@ export function renderSmart(state: AppState): string {
                 <span class="text-slate-500">×</span>
               </span>
               <span class="mt-0.5 block text-[10px] text-slate-500">
-                returns <b class="text-slate-300">${bet.ev.toFixed(2)}</b> per 1.00
-                ${custom ? `<span class="text-amber-300/80">· was ${(bet.probability * NLA_MULTIPLIERS[bet.id]).toFixed(2)}</span>` : ''}
+                returns <b class="text-slate-300">${evLabel(bet.ev)}</b> per 1.00
+                ${custom ? `<span class="text-amber-300/80">· was ${evLabel(bet.probability * NLA_MULTIPLIERS[bet.id])}</span>` : ''}
               </span>
             </label>`;
           })

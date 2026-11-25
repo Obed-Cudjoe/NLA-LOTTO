@@ -230,3 +230,56 @@ export function guarantee(betId: BetId): {
           : 'A covering design: enough lines that no draw of five can avoid all of them.',
   };
 }
+
+/**
+ * What it takes to hold a *named* chance of winning — the honest version of
+ * "give me numbers with a 75% chance".
+ *
+ * Probability of at least one win across `n` lines is 1 − (1 − p)^n, which for
+ * Direct 1 is exact rather than approximate: its lines are mutually exclusive
+ * (one line per possible first ball), so 68 distinct numbers give exactly
+ * 68/90 = 75.56%. For the multi-number tickets the same formula assumes the
+ * lines are laid out disjointly, so treat the figure as a floor for messy
+ * overlaps and exact for a clean design.
+ *
+ * The chance is real and the price is real. Which numbers you fill in does not
+ * move either one: for Direct 1 *any* 68 distinct numbers give 75.56%.
+ */
+export interface TargetPlan {
+  id: BetId;
+  label: string;
+  multiplier: number;
+  /** Lines needed to reach the target chance. */
+  lines: number;
+  /** For Direct 1 these are distinct numbers and the chance is exact. */
+  distinct: boolean;
+  chance: number;
+  stake: number;
+  expectedBack: number;
+  net: number;
+}
+
+export function planForChance(confidence: number): TargetPlan[] {
+  const c = Math.min(0.999999, Math.max(0.000001, confidence));
+  return betTypes()
+    .map((bet) => {
+      const distinct = bet.picks === 1;
+      const lines = distinct
+        ? Math.ceil(c * BALLS)
+        : Math.ceil(Math.log(1 - c) / Math.log(1 - bet.probability));
+      const chance = distinct ? Math.min(1, lines / BALLS) : 1 - Math.pow(1 - bet.probability, lines);
+      const expectedBack = lines * bet.ev;
+      return {
+        id: bet.id,
+        label: bet.label,
+        multiplier: bet.multiplier,
+        lines,
+        distinct,
+        chance,
+        stake: lines,
+        expectedBack,
+        net: expectedBack - lines,
+      };
+    })
+    .sort((a, b) => a.lines - b.lines);
+}

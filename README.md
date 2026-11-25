@@ -150,6 +150,27 @@ refresh now fires at `:15` every hour from 18:00 to 23:00 UTC, so a missed slot 
 the hour. An empty run commits nothing, and the job summary says whether today's result is stored
 or still outstanding.
 
+### A 75% chance, priced exactly
+
+"Give me numbers with a 75% chance" has an answer, and it is a shopping list rather than a prediction.
+
+| Ticket | Lines for 50% | Lines for 75% | Lines for 90% | Back on the 75% line | Net |
+|---|---|---|---|---|---|
+| Direct 1 | 45 | **68** | 81 | 30 | −38 |
+| Direct 2 | 278 | 555 | 922 | 333 | −222 |
+| Direct 3 | 8,143 | 16,286 | 27,050 | 2,911 | −13,375 |
+| Direct 5 | 30,463,311 | 60,926,622 | 101,196,929 | 60,997 | −60.9M |
+
+`planForChance(0.75)` computes these. Direct 1 is exact, not approximate: its lines are mutually
+exclusive — one per possible first ball — so **68 distinct numbers give exactly 68/90 = 75.56%**.
+
+The cheapest route to 75% is therefore 68 Direct 1 lines: stake 68, expect 30 back, a certain −38 in
+expectation. The best-rate route is 555 Direct 2 lines: 0.60 back per 1.00 instead of 0.44, on eight
+times the stake and six times the absolute loss.
+
+And the part that cannot be bought: **any** 68 distinct numbers give that 75.56%. The chance comes
+from the count, the price from the multiplier, and neither responds to which numbers a model prefers.
+
 ### The price of certainty
 
 If any question about this game has an exact answer, it is "what would 100% cost?"

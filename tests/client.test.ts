@@ -434,6 +434,15 @@ describe('dashboard (static mode)', () => {
     expect(appText()).toContain('The price you are actually paid');
     expect(appText()).toContain('240× the debited amount');
     expect(document.querySelectorAll('[data-action="set-price"]').length).toBe(5);
+    // 0.0010 must not render as "0.00" — the worst ticket looked free.
+    expect(appText()).not.toContain('returns 0.00 per 1.00');
+    expect(appText()).toContain('0.0010');
+
+    // The request in the user's own terms: numbers with a 75% chance.
+    expect(appText()).toContain('Building a 75% chance');
+    expect(appText()).toContain('68 Direct 1 lines');
+    expect(appText()).toContain('75.56%');
+    expect(appText()).toContain('Any 68 distinct numbers');
 
     // And the ceiling of the whole question: what certainty costs.
     expect(appText()).toContain('The price of certainty');

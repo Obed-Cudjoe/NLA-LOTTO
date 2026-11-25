@@ -101,7 +101,11 @@ describe('dashboard (static mode)', () => {
     await waitFor(() => appText().includes('Last draw vs the engine'), 'review card');
     expect(state().review).toBeTruthy();
     expect(appText()).toContain('Engine said');
-    expect(appText()).toMatch(/expected 0\.17 per draw/);
+    expect(appText()).toMatch(/expected 0\.28 of five per draw/);
+    // The card audits every ticket we publish, not just the trio.
+    expect(appText()).toContain('Perm 5');
+    expect(appText()).toContain('2-Sure');
+    expect(appText()).toContain('3-Direct');
     expect(appText()).toContain('Pre-draw rank');
     // Honest wording: a blank line is the normal outcome, not a failure.
     expect(appText()).toMatch(/most likely outcome/i);

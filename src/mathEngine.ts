@@ -1253,6 +1253,8 @@ export function reviewLastDraw(
   if (before.next.date !== actual.draw_date) return null; // schedule gap — nothing to compare
 
   const picks = before.trio.numbers;
+  const five = before.evidence.slice(0, 5).map((e) => e.number);
+  const pair = five.slice(0, 2);
   const byNumber = new Map(before.evidence.map((e) => [e.number, e]));
   const ranked = actual.winning.map((number) => {
     const e = byNumber.get(number);
@@ -1272,12 +1274,12 @@ export function reviewLastDraw(
 
   const verdict =
     hits >= 3
-      ? 'All three landed. That is a 1-in-11,748 event — the tail of a random distribution, not a method. Take the money and expect the next 60 draws to look ordinary again.'
+      ? 'All three of the trio landed. That is a 1-in-11,748 event — the tail of a random distribution, not a method. Take the money and expect the next 60 draws to look ordinary again.'
       : hits === 2
-        ? 'Two of three landed, which happens in about 0.7% of draws. Unusual, pleasant, and still luck: nothing in the model caused the drum to release those balls.'
+        ? 'Two of the trio landed, which happens in about 0.7% of draws. Unusual, pleasant, and still luck: nothing in the model caused the drum to release those balls.'
         : hits === 1
-          ? 'One of three landed. That is the single most common non-zero outcome (about 15% of draws) and exactly what chance offers — the expected hits per draw is 0.17.'
-          : 'None landed, which is the most likely outcome: about 84% of draws hit nothing. The expected hits per draw is 0.17, so a blank is normal, not a failure of the model.';
+          ? 'One of the trio landed. That is the single most common non-zero outcome (about 15% of draws) and exactly what chance offers — the expected hits per draw is 0.17.'
+          : 'None of the trio landed, which is the most likely outcome: about 84% of draws hit nothing on three picks. The expected hits per draw is 0.17, so a blank is normal, not a failure of the model.';
 
   return {
     actual,
@@ -1285,6 +1287,17 @@ export function reviewLastDraw(
     matched,
     matchedMachine,
     hits,
+    five: {
+      numbers: five,
+      matched: five.filter((n) => actual.winning.includes(n)),
+      pAny: chanceAtLeastOneHit(five.length),
+    },
+    pair: {
+      numbers: pair,
+      matched: pair.filter((n) => actual.winning.includes(n)),
+      both: pair.length === 2 && pair.every((n) => actual.winning.includes(n)),
+      pBoth: CHANCE_TWO,
+    },
     expectedHits,
     pAtLeastOne,
     ranked,

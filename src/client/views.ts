@@ -545,18 +545,26 @@ function renderLastDrawReview(state: AppState): string {
   const pickTone = (n: number): string => (actual.winning.includes(n) ? 'text-emerald-300' : '');
   const allWinning = [...actual.winning].sort((a, b) => a - b);
 
+  const hitTone = (n: number): string =>
+    actual.winning.includes(n)
+      ? 'border-emerald-400/60 bg-emerald-400/15 text-emerald-200'
+      : 'border-slate-700 bg-slate-800/80 text-slate-300';
+  const fiveHits = r.five.matched.length;
+  const pairHits = r.pair.matched.length;
+
   return card(`
     <div class="flex flex-wrap items-start justify-between gap-2">
       <div>
         <h3 class="text-sm font-semibold text-slate-100">Last draw vs the engine</h3>
         <p class="text-[11px] text-slate-400">
           ${esc(actual.game_name)} · ${esc(formatDrawDate(actual.draw_date))} ·
-          the picks below were made from the ${r.predicted.numbers.length === 3 ? `${r.predicted.numbers.length}-number trio` : 'trio'} the engine gave *before* this draw
+          every ticket below was what the engine published <em>before</em> this draw — the perm-5
+          line, the 2-Sure pair and the 3-Direct trio.
         </p>
       </div>
       ${badge(
-        r.hits === 0 ? 'no hit' : `${r.hits} of 3 hit`,
-        r.hits === 0 ? 'muted' : r.hits >= 2 ? 'ok' : 'info'
+        fiveHits === 0 ? `0 of 5` : `${fiveHits} of 5`,
+        fiveHits === 0 ? 'muted' : fiveHits >= 2 ? 'ok' : 'info'
       )}
     </div>
 
@@ -567,35 +575,78 @@ function renderLastDrawReview(state: AppState): string {
         <p class="mt-1 text-[10px] text-slate-500">Machine: ${actual.machine.join(' · ')}</p>
       </div>
       <div>
-        <p class="text-[10px] uppercase tracking-wide text-slate-500">Engine said</p>
+        <p class="text-[10px] uppercase tracking-wide text-slate-500">Engine said — the five we published</p>
         <div class="mt-1 flex flex-wrap items-center gap-1">
-          ${r.predicted.numbers
+          ${r.five.numbers
             .map(
               (n) =>
-                `<span class="inline-flex h-7 min-w-7 items-center justify-center rounded-full border px-1.5 text-xs font-semibold ${
-                  pickTone(n) ||
-                  'border-slate-700 bg-slate-800/80 text-slate-300'
-                }">${n}</span>`
+                `<span class="inline-flex h-7 min-w-7 items-center justify-center rounded-full border px-1.5 text-xs font-semibold ${hitTone(n)}">${n}</span>`
             )
             .join('')}
         </div>
         <p class="mt-1 text-[10px] text-slate-500">
-          ${r.hits} hit · ${r.matchedMachine.length ? `${r.matchedMachine.length} in the machine set` : 'none in the machine set'} ·
-          expected ${num(r.expectedHits)} per draw
+          ${fiveHits} of 5 drawn · ${r.matchedMachine.length ? `${r.matchedMachine.length} in the machine set` : 'none in the machine set'} ·
+          expected ${num(0.2778)} of five per draw
         </p>
       </div>
     </div>
 
-    <p class="mt-3 text-[11px] leading-relaxed text-slate-300">${esc(r.verdict)}</p>
+    <div class="mt-3 overflow-x-auto">
+      <table class="w-full min-w-[520px] text-left text-[11px]">
+        <thead class="text-[10px] uppercase tracking-wide text-slate-500">
+          <tr>
+            <th class="py-1 pr-3">Ticket</th>
+            <th class="py-1 pr-3">We said</th>
+            <th class="py-1 pr-3">Drawn</th>
+            <th class="py-1 pr-3">Chance per draw</th>
+            <th class="py-1">Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="border-t border-slate-800/70">
+            <td class="py-1.5 pr-3 font-medium text-slate-100">Perm 5 <span class="text-slate-500">44,000×</span></td>
+            <td class="py-1.5 pr-3 text-slate-300">${r.five.numbers.join(' · ')}</td>
+            <td class="py-1.5 pr-3 text-slate-300">${fiveHits}</td>
+            <td class="py-1.5 pr-3 text-slate-400">at least one: ${pct(r.five.pAny, 1)}</td>
+            <td class="py-1.5 ${fiveHits ? 'text-emerald-300' : 'text-slate-400'}">${fiveHits === 0 ? 'nothing' : `${fiveHits} landed`}</td>
+          </tr>
+          <tr class="border-t border-slate-800/70">
+            <td class="py-1.5 pr-3 font-medium text-slate-100">2-Sure <span class="text-slate-500">240×</span></td>
+            <td class="py-1.5 pr-3 text-slate-300">${r.pair.numbers.join(' · ')}</td>
+            <td class="py-1.5 pr-3 text-slate-300">${pairHits} of 2</td>
+            <td class="py-1.5 pr-3 text-slate-400">both: ${pct(r.pair.pBoth, 2)}</td>
+            <td class="py-1.5 ${r.pair.both ? 'text-emerald-300' : 'text-slate-400'}">${r.pair.both ? 'won' : 'not both'}</td>
+          </tr>
+          <tr class="border-t border-slate-800/70">
+            <td class="py-1.5 pr-3 font-medium text-slate-100">3-Direct <span class="text-slate-500">2,100×</span></td>
+            <td class="py-1.5 pr-3 text-slate-300">${r.predicted.numbers.join(' · ')}</td>
+            <td class="py-1.5 pr-3 text-slate-300">${r.hits} of 3</td>
+            <td class="py-1.5 pr-3 text-slate-400">all three: ${pct(1 / 11748, 3)}</td>
+            <td class="py-1.5 ${r.hits ? 'text-emerald-300' : 'text-slate-400'}">${r.hits === 0 ? 'nothing' : `${r.hits} landed`}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="mt-2 text-[11px] leading-relaxed text-slate-300">
+      ${fiveHits === 0
+        ? `None of the five appeared. That is the ordinary case: with five specified numbers the chance
+           that at least one is drawn is ${pct(r.five.pAny, 1)}, so a blank five happens about
+           ${pct(1 - r.five.pAny, 0)} of the time.`
+        : `${fiveHits} of the five appeared. With five specified numbers that happens
+           ${pct(r.five.pAny, 1)} of the time per draw, so it is ordinary — not a signal.`}
+    </p>
+
+    <p class="mt-2 text-[11px] leading-relaxed text-slate-400">${esc(r.verdict)}</p>
 
     <details class="mt-3 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2">
       <summary class="cursor-pointer text-[11px] font-medium text-slate-300">
-        Why these five numbers, and how surprising was the draw?
+        How did the drum rank against the model?
       </summary>
       <p class="mt-2 text-[11px] leading-relaxed text-slate-400">
         Rank 1 means the model rated that number most likely; a rank near 90 means it rated it
-        cold. Probability of at least one hit with three picks is ${pct(r.pAtLeastOne)} per draw,
-        so a blank line is the normal case — the drum does not consult the ranking.
+        cold. The trio's chance of at least one hit is ${pct(r.pAtLeastOne)} per draw, so a blank
+        trio is the normal case — the drum does not consult the ranking.
       </p>
       <div class="mt-2 overflow-x-auto">
         <table class="w-full text-left text-[11px]">

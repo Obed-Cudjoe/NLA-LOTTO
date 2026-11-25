@@ -224,6 +224,26 @@ export interface LastDrawReview {
   expectedHits: number;
   /** Exact hypergeometric probability of at least one hit with three picks. */
   pAtLeastOne: number;
+  /**
+   * The five-number line we publish, audited the same way. The trio is the
+   * sharpest three numbers, but the five is what a player actually permutes —
+   * reviewing only the trio hid the ticket that carries the money.
+   */
+  five: {
+    numbers: number[];
+    matched: number[];
+    /** Chance at least one of these five is drawn: 25.4%. */
+    pAny: number;
+  };
+  /** The 2-Sure pair, which needs both numbers rather than any. */
+  pair: {
+    numbers: number[];
+    matched: number[];
+    /** True only when both numbers were drawn. */
+    both: boolean;
+    /** Chance both are drawn: 1 in 400.5. */
+    pBoth: number;
+  };
   /** The winning numbers as the model ranked them *before* the draw. */
   ranked: Array<{ number: number; rank: number; z: number; hit: boolean }>;
   verdict: string;

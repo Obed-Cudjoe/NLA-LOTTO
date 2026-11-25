@@ -1152,7 +1152,7 @@ async function boot(): Promise<void> {
   }
   try {
     state.mode = await detectMode();
-    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.13.1' };
+    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.14.0' };
     if (!state.settings.ghRepo.trim()) {
       const guess = repoGuess();
       if (guess) {

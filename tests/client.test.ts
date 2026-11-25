@@ -438,6 +438,12 @@ describe('dashboard (static mode)', () => {
     expect(appText()).not.toContain('returns 0.00 per 1.00');
     expect(appText()).toContain('0.0010');
 
+    // The request in the user's own terms: numbers with a 75% chance.
+    expect(appText()).toContain('Building a 75% chance');
+    expect(appText()).toContain('68 Direct 1 lines');
+    expect(appText()).toContain('75.56%');
+    expect(appText()).toContain('Any 68 distinct numbers');
+
     // And the ceiling of the whole question: what certainty costs.
     expect(appText()).toContain('The price of certainty');
     expect(appText()).toContain('90 lines cover every possible first ball');

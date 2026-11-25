@@ -8,7 +8,7 @@
  */
 import { GAME_WEEKDAY, GAMES } from '../types';
 import { formatDrawDate, nextOpenDraw } from '../mathEngine';
-import { NLA_MULTIPLIERS, betTypes, coverage, guarantee, linesForConfidence } from '../bets';
+import { NLA_MULTIPLIERS, betTypes, coverage, guarantee, linesForConfidence, planForChance } from '../bets';
 import { isDrawPast, scorePickBook } from '../pickBook';
 import { collisionsDuringWalk, collisionsToMix, effectiveMixSeconds } from '../mixing';
 import { badge, balls, card, drawWhen, esc, pct, stat, targetHeading, tinyPct } from './format';
@@ -763,6 +763,71 @@ export function renderSmart(state: AppState): string {
       of nothing in between. Direct 5 is a lottery within a lottery: it pays
       ${jackpot ? jackpot.multiplier.toLocaleString() : '44,000'}× on a 1-in-${jackpot ? n0(jackpot.oneIn) : '43,949,268'} shot.
     </p>
+
+    ${card(`
+      <div class="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 class="text-sm font-semibold text-slate-100">Building a 75% chance</h2>
+          <p class="text-[11px] text-slate-400">
+            You asked for numbers with a 75% chance of winning. A 75% chance is buyable today, and this
+            is every route to it, priced exactly. What cannot be bought is a 75% chance <em>per line</em>
+            — that would be a model beating fixed odds, and no arrangement of numbers does it.
+          </p>
+        </div>
+        ${badge('exact arithmetic', 'info')}
+      </div>
+
+      <div class="mt-3 overflow-x-auto">
+        <table class="w-full min-w-[620px] text-left text-[11px]">
+          <thead class="text-[10px] uppercase tracking-wide text-slate-500">
+            <tr>
+              <th class="py-1 pr-2">Ticket</th>
+              <th class="py-1 pr-2">Lines for 50%</th>
+              <th class="py-1 pr-2">Lines for 75%</th>
+              <th class="py-1 pr-2">Lines for 90%</th>
+              <th class="py-1 pr-2">Back on the 75% line</th>
+              <th class="py-1">Net</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${planForChance(0.75)
+              .map((row) => {
+                const half = planForChance(0.5).find((x) => x.id === row.id)!;
+                const ninety = planForChance(0.9).find((x) => x.id === row.id)!;
+                return `<tr class="border-t border-white/5">
+                  <td class="py-1 pr-2 text-slate-100">${esc(row.label)} <span class="text-slate-500">${row.multiplier.toLocaleString()}×</span></td>
+                  <td class="py-1 pr-2 text-slate-400">${n0(half.lines)}</td>
+                  <td class="py-1 pr-2 font-medium text-slate-100">${n0(row.lines)}</td>
+                  <td class="py-1 pr-2 text-slate-400">${n0(ninety.lines)}</td>
+                  <td class="py-1 pr-2 text-slate-300">${n0(row.expectedBack)}</td>
+                  <td class="py-1 text-rose-300/90">−${n0(Math.abs(row.net))}</td>
+                </tr>`;
+              })
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mt-2 grid gap-2 sm:grid-cols-2">
+        <p class="rounded-lg border border-emerald-400/20 bg-emerald-400/5 p-2.5 text-[11px] leading-relaxed text-emerald-100/85">
+          <b>Cheapest route to 75%:</b> 68 Direct 1 lines —
+          <b>68 different numbers, one per line</b>. Direct 1 lines are mutually exclusive (one per
+          possible first ball), so the chance is exactly 68/90 = <b>75.56%</b>. Stake 68, expect 30
+          back: a certain −38 in expectation, every session.
+        </p>
+        <p class="rounded-lg border border-white/10 bg-black/20 p-2.5 text-[11px] leading-relaxed text-slate-300">
+          <b>Best return at 75%:</b> 555 Direct 2 lines, expecting 333 back on 555 staked. Eight times
+          the stake of the Direct 1 route for a better rate (0.60 vs 0.44 back per 1.00) — and 6× the
+          absolute loss.
+        </p>
+      </div>
+
+      <p class="mt-2 rounded-lg border border-amber-400/20 bg-amber-400/5 p-2.5 text-[11px] leading-relaxed text-amber-100/85">
+        Which numbers you fill in does not change either figure. <b>Any 68 distinct numbers</b> give
+        75.56% on Direct 1; the model's ranking is not what delivers the 75% — the count is. That is
+        the whole of the honest answer to "pick numbers with a 75% chance": the chance comes from how
+        many you cover, the price comes from the multiplier, and neither responds to cleverness.
+      </p>`)}
 
     ${card(`
       <h2 class="text-sm font-semibold text-slate-100">The price of certainty</h2>

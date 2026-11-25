@@ -10,6 +10,7 @@ import {
   probabilityOfMatch,
   setPriceOverrides,
   guarantee,
+  planForChance,
 } from '../src/bets';
 
 describe('NLA bet types and their exact value', () => {
@@ -147,5 +148,46 @@ describe('guarantee — the invoice for certainty', () => {
     // Any real counter at that price is almost certainly misquoting the ticket.
     setPriceOverrides({ direct1: 40 });
     expect(guarantee('direct1').net).toBe(-50);
+  });
+});
+
+describe('planForChance — buying a named chance', () => {
+  afterEach(() => setPriceOverrides({}));
+
+  it('gets to 75% on Direct 1 with exactly 68 distinct numbers', () => {
+    const d1 = planForChance(0.75).find((p) => p.id === 'direct1')!;
+    expect(d1.lines).toBe(68); // ceil(0.75 × 90)
+    expect(d1.distinct).toBe(true);
+    expect(d1.chance).toBeCloseTo(68 / 90, 10); // 75.56%, exact
+    expect(d1.net).toBeLessThan(0);
+  });
+
+  it('reaches 100% at 90 lines, which is the whole drum', () => {
+    const d1 = planForChance(0.99).find((p) => p.id === 'direct1')!;
+    expect(d1.lines).toBe(90);
+    expect(d1.chance).toBe(1);
+  });
+
+  it('prices the 75% five-number line and admits what it costs', () => {
+    const d5 = planForChance(0.75).find((p) => p.id === 'direct5')!;
+    expect(d5.lines).toBeGreaterThan(60_000_000);
+    expect(d5.net).toBeLessThan(-60_000_000);
+  });
+
+  it('is monotone in confidence and never positive', () => {
+    for (const id of ['direct1', 'direct2', 'direct3'] as const) {
+      const lo = planForChance(0.5).find((p) => p.id === id)!;
+      const hi = planForChance(0.9).find((p) => p.id === id)!;
+      expect(hi.lines).toBeGreaterThan(lo.lines);
+      expect(hi.net).toBeLessThan(lo.net);
+      expect(lo.net).toBeLessThan(0);
+    }
+  });
+
+  it('follows a price change, because the plan is the price', () => {
+    setPriceOverrides({ direct2: 200 });
+    const before = planForChance(0.75).find((p) => p.id === 'direct2')!;
+    expect(before.expectedBack).toBeCloseTo(before.lines * (200 / 400.5), 6);
+    expect(before.net).toBeLessThan(-200);
   });
 });

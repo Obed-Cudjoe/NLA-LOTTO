@@ -8,7 +8,7 @@
  */
 import { GAME_WEEKDAY, GAMES } from '../types';
 import { formatDrawDate, nextOpenDraw } from '../mathEngine';
-import { NLA_MULTIPLIERS, betTypes, coverage, guarantee, linesForConfidence, planForChance } from '../bets';
+import { NLA_MULTIPLIERS, betTypes, coverage, doubleChance, guarantee, linesForConfidence, planForChance } from '../bets';
 import { isDrawPast, scorePickBook } from '../pickBook';
 import { collisionsDuringWalk, collisionsToMix, effectiveMixSeconds } from '../mixing';
 import { badge, balls, card, drawWhen, esc, pct, stat, targetHeading, tinyPct } from './format';
@@ -882,6 +882,78 @@ export function renderSmart(state: AppState): string {
         odds. At 90× on Direct 1 the guarantee would break exactly even; at 120× it would pay. If a
         counter ever quotes you that, the likeliest explanation is a misread ticket rather than a gift —
         but it is the one number worth checking, which is what the price panel above is for.
+      </p>`)}
+
+    ${card(`
+      <div class="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 class="text-sm font-semibold text-slate-100">Staking on the phone (shortcode)</h2>
+          <p class="text-[11px] text-slate-400">
+            The shortcode is the only channel where you see the price before you commit — and the only
+            one where the receipt is a text message instead of a paper ticket. Both change what you
+            should check.
+          </p>
+        </div>
+        ${badge('check the screen, not the advert', 'muted')}
+      </div>
+
+      <ol class="mt-3 grid gap-1.5 text-[11px] leading-relaxed text-slate-300">
+        <li><b class="text-slate-100">1. Before confirming, read four things</b> — game name, bet type,
+          numbers, and the <b>stake/debit</b> line. A wrong game or a wrong date is the most common
+          avoidable loss in this game.</li>
+        <li><b class="text-slate-100">2. Read the multiplier the screen shows</b> before you accept.
+          The published Direct 2 price is 240× the amount debited (320× the "stake", which the operator
+          defines as 75% of the debit). If your screen shows 200×, that is a 17% worse price — enter
+          200 in the panel below so every figure here tells you the truth.</li>
+        <li><b class="text-slate-100">3. Keep the confirmation SMS.</b> On this channel it is your only
+          proof of purchase: it carries the transaction reference you need to claim. Screenshot it,
+          or forward it to yourself, and keep it until the result is paid or dead.</li>
+        <li><b class="text-slate-100">4. One stake per line.</b> The published terms put the minimum at
+          1 cedi and the maximum at 200 per ticket, so a 68-line plan (the cheapest 75%) is 68
+          separate selections — budget for the total, not the first one.</li>
+      </ol>
+
+      <h3 class="mt-4 text-[12px] font-semibold text-slate-100">"Double Chance" — the one option that changes the arithmetic</h3>
+      <p class="mt-1 text-[11px] leading-relaxed text-slate-300">
+        Some shortcodes offer to cover the five machine numbers as well, so ten balls decide the
+        ticket. That does not double your chance — it multiplies it by
+        C(10,k)/C(5,k), which is far more than two:
+      </p>
+      <div class="mt-2 overflow-x-auto">
+        <table class="w-full min-w-[520px] text-left text-[11px]">
+          <thead class="text-[10px] uppercase tracking-wide text-slate-500">
+            <tr>
+              <th class="py-1 pr-2">Ticket</th>
+              <th class="py-1 pr-2">Normal</th>
+              <th class="py-1 pr-2">With ten balls</th>
+              <th class="py-1 pr-2">Times likelier</th>
+              <th class="py-1">Worth it only below</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${doubleChance()
+              .filter((d) => d.id !== 'direct1')
+              .map((d) => `<tr class="border-t border-white/5">
+                <td class="py-1 pr-2 text-slate-100">${esc(d.id.replace('direct', 'Direct '))}</td>
+                <td class="py-1 pr-2 text-slate-400">1 in ${n0(1 / d.baselineChance)}</td>
+                <td class="py-1 pr-2 text-slate-300">1 in ${n0(1 / d.coveredChance)}</td>
+                <td class="py-1 pr-2 text-slate-300">×${d.chanceMultiple.toFixed(1)}</td>
+                <td class="py-1 text-slate-300">${d.breakEvenCostFactor.toFixed(1)}× the stake</td>
+              </tr>`)
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+      <p class="mt-2 rounded-lg border border-amber-400/20 bg-amber-400/5 p-2.5 text-[11px] leading-relaxed text-amber-100/85">
+        Read the last column as a warning, not an invitation. If covering ten balls makes Direct 2
+        <b>4.5× more likely</b> and the payout stays at 240×, the ticket would return 2.70 per 1.00 —
+        which no operator offers. So either the price drops when the option is on, or the extra cost
+        is charged per ball. <b>Check the multiplier on screen before you confirm:</b> the option is
+        worth buying only if it costs less than the break-even multiple shown.
+      </p>
+      <p class="mt-2 text-[10px] leading-snug text-slate-500">
+        Direct 1 is excluded on purpose: it pays on the first ball only, so machine numbers cannot help
+        it however the option is labelled.
       </p>`)}
 
     ${card(`

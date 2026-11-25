@@ -438,6 +438,13 @@ describe('dashboard (static mode)', () => {
     expect(appText()).not.toContain('returns 0.00 per 1.00');
     expect(appText()).toContain('0.0010');
 
+    // Phone staking has its own checks — and its own trap, Double Chance.
+    expect(appText()).toContain('Staking on the phone (shortcode)');
+    expect(appText()).toContain('Keep the confirmation SMS');
+    expect(appText()).toContain('Double Chance');
+    expect(appText()).toMatch(/4\.5×/);
+    expect(appText()).toContain('Check the multiplier on screen before you confirm');
+
     // The request in the user's own terms: numbers with a 75% chance.
     expect(appText()).toContain('Building a 75% chance');
     expect(appText()).toContain('68 Direct 1 lines');

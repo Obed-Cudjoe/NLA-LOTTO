@@ -471,3 +471,34 @@ describe('nextOpenDraw — the target is a draw you can still stake on', () => {
     expect(after.next.date).toBe('2026-12-01');
   });
 });
+
+describe('reviewLastDraw — audits every ticket we publish', () => {
+  // Tuesdays only: 6 Oct 2026 + n weeks, so the schedule and the archive agree.
+  const draws: Draw[] = Array.from({ length: 8 }, (_, i) => ({
+    draw_date: new Date(Date.UTC(2026, 9, 6 + i * 7)).toISOString().slice(0, 10),
+    game_name: 'Lucky Tuesday',
+    winning: [3, 11, 24, 55, 78].map((n) => ((n + i) % 90) + 1),
+    machine: [4, 12, 25, 56, 79],
+  }));
+
+  it('carries the five, the pair and the trio', () => {
+    const r = reviewLastDraw(draws, DEFAULT_CONFIG, 'Lucky Tuesday');
+    expect(r).not.toBeNull();
+    expect(r!.five.numbers).toHaveLength(5);
+    expect(r!.pair.numbers).toEqual(r!.five.numbers.slice(0, 2));
+    expect(r!.predicted.numbers).toHaveLength(3);
+  });
+
+  it('uses the right chance for each ticket', () => {
+    const r = reviewLastDraw(draws, DEFAULT_CONFIG, 'Lucky Tuesday')!;
+    expect(r.five.pAny).toBeCloseTo(0.2541, 3); // at least one of five
+    expect(r.pair.pBoth).toBeCloseTo(1 / 400.5, 5); // both of the pair
+    expect(r.pAtLeastOne).toBeCloseTo(0.1588, 3); // at least one of three
+  });
+
+  it('counts a pair win only when both numbers are drawn', () => {
+    const r = reviewLastDraw(draws, DEFAULT_CONFIG, 'Lucky Tuesday')!;
+    expect(r.pair.both).toBe(r.pair.matched.length === 2);
+    expect(r.five.matched).toEqual(r.five.numbers.filter((n) => r.actual.winning.includes(n)));
+  });
+});

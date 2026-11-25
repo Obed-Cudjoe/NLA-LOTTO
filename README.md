@@ -142,6 +142,30 @@ Two consequences the app states plainly:
   for an expected return of about 30,500. It can win, and somebody does; the
   arithmetic of what "likely" costs is on the card.
 
+### Why the refresh runs hourly, not nightly
+
+GitHub's scheduled workflows are best-effort and silently skip runs — they skipped on 23 and 24
+Nov 2026, which left the archive a day stale and the site pointing at a draw with no result. The
+refresh now fires at `:15` every hour from 18:00 to 23:00 UTC, so a missed slot is caught within
+the hour. An empty run commits nothing, and the job summary says whether today's result is stored
+or still outstanding.
+
+### The result check audits every ticket, not just the trio
+
+"Last draw vs the engine" used to compare only the 3-number trio, which hid the ticket that
+actually carries the money. It now walks all three tickets the site publishes — the perm-5 line,
+the 2-Sure pair and the 3-Direct trio — each with its own chance, because those chances are not
+the same question:
+
+| Ticket | Question | Chance per draw |
+|---|---|---|
+| Perm 5 | at least one of the five is drawn | 25.4% |
+| 2-Sure | **both** numbers are drawn | 0.25% |
+| 3-Direct | at least one of the three is drawn | 15.9% |
+
+The five-number line is the headline: a blank five happens about three draws in four, so an
+ordinary blank is reported as ordinary rather than dressed up as bad luck.
+
 ### The target is a draw you can still stake on
 
 A draw ends in two ways, and the calendar only knows about one of them:

@@ -27,6 +27,34 @@ export const NLA_MULTIPLIERS = {
 
 export type BetId = keyof typeof NLA_MULTIPLIERS;
 
+/**
+ * The prices the player is *actually* paid, when they differ from the published
+ * table. Kiosks and operators do diverge — a "2 sure" that returns 200× on a
+ * 10 cedi debit is 17% worse than the published 240× — and an EV table built on
+ * the wrong price is worse than no table at all. Defaults are the published
+ * multipliers; anything set here wins.
+ */
+let PRICE_OVERRIDES: Partial<Record<BetId, number>> = {};
+
+export function setPriceOverrides(overrides: Partial<Record<BetId, number>> = {}): void {
+  const clean: Partial<Record<BetId, number>> = {};
+  for (const [id, value] of Object.entries(overrides)) {
+    const key = id as BetId;
+    if (!(key in NLA_MULTIPLIERS)) continue;
+    if (typeof value === 'number' && Number.isFinite(value) && value > 0) clean[key] = value;
+  }
+  PRICE_OVERRIDES = clean;
+}
+
+export function priceOverrides(): Partial<Record<BetId, number>> {
+  return { ...PRICE_OVERRIDES };
+}
+
+/** The multiplier in force for a bet: the player's price if given, else published. */
+export function effectiveMultiplier(id: BetId): number {
+  return PRICE_OVERRIDES[id] ?? NLA_MULTIPLIERS[id];
+}
+
 export interface BetType {
   id: BetId;
   label: string;
@@ -93,7 +121,7 @@ export function betTypes(): BetType[] {
     .map((id) => {
       const picks = Number(id.replace('direct', ''));
       const probability = directProbability(picks);
-      const multiplier = NLA_MULTIPLIERS[id];
+      const multiplier = effectiveMultiplier(id);
       const ev = expectedReturn(probability, multiplier);
       return {
         id,
@@ -162,4 +190,43 @@ export function linesForConfidence(betId: BetId, confidence: number): number {
   const bet = betTypes().find((b) => b.id === betId) ?? bestBet();
   const c = Math.min(0.999999, Math.max(0.000001, confidence));
   return Math.ceil(Math.log(1 - c) / Math.log(1 - bet.probability));
+}
+
+/**
+ * The invoice for certainty: what it costs to *guarantee* a win on a ticket.
+ *
+ * Every "can we raise the chance to 100%" question ends here. For Direct 1 the
+ * answer is exact and cheap to state: 90 lines, one per possible first ball,
+ * exactly one of which wins — 90 staked for 40 back, a certain loss of 50.
+ *
+ * For the multi-number tickets a guarantee needs a covering design: a set of
+ * lines such that every one of the C(90,5) possible draws contains at least one
+ * of them. Counting gives a hard floor — one line of k numbers sits inside
+ * C(90-k, 5-k) of those draws — so `lines` is a lower bound whenever `exact` is
+ * false, and the true figure is at least that.
+ */
+export function guarantee(betId: BetId): {
+  lines: number;
+  exact: boolean;
+  payout: number;
+  /** Best case for a perfect design: one winning line, every non-winning line lost. */
+  net: number;
+  note: string;
+} {
+  const bet = betTypes().find((b) => b.id === betId) ?? bestBet();
+  const exact = bet.picks === 1 || bet.picks === BALLS - WINNING_COUNT + 1 || bet.picks === 5;
+  const lines = bet.picks === 1 ? BALLS : Math.ceil(1 / bet.probability);
+  const payout = bet.multiplier;
+  return {
+    lines,
+    exact,
+    payout,
+    net: payout - lines,
+    note:
+      bet.picks === 1
+        ? 'One line covers one possible first ball, so 90 lines cover all of them — exactly one wins.'
+        : bet.picks === 5
+          ? 'Every combination of five must be bought, because each one is a separate way to win.'
+          : 'A covering design: enough lines that no draw of five can avoid all of them.',
+  };
 }

@@ -150,6 +150,98 @@ refresh now fires at `:15` every hour from 18:00 to 23:00 UTC, so a missed slot 
 the hour. An empty run commits nothing, and the job summary says whether today's result is stored
 or still outstanding.
 
+### The price of certainty
+
+If any question about this game has an exact answer, it is "what would 100% cost?"
+
+| Ticket | Lines to be certain | Stake | Collect | Guaranteed net |
+|---|---|---|---|---|
+| Direct 1 | **90** (exact) | 90 | 40 | **−50** |
+| Direct 2 | 401 (at least) | 401 | 240 | −161 |
+| Direct 3 | 11,748 (at least) | 11,748 | 2,100 | −9,648 |
+| Direct 4 | 511,038 (at least) | 511,038 | 6,000 | −505,038 |
+| Direct 5 | **43,949,268** (exact) | 43,949,268 | 44,000 | **−43,905,268** |
+
+Direct 1 is the clean case: 90 lines cover every possible first ball, exactly one wins, and 40 comes
+back on 90 staked. The "at least" rows are covering-design floors — one line of k numbers sits inside
+C(90−k, 5−k) possible draws — so the true minimum, and the true loss, is larger still.
+
+The only arithmetic that reverses this is a price **above** the fair odds (90× on Direct 1, 400.5× on
+Direct 2). At 120× the Direct 1 guarantee would pay 30. A real counter quoting that is almost
+certainly misreading a ticket — but it is the one number worth checking, which is what the editable
+price panel exists for.
+
+### The price is a variable, not a constant
+
+A reader reported that **10 cedis on a 2-Sure returns 2,000** at their counter — 200×, not the
+published 240×. Both numbers are worth having, because every figure in this project is downstream
+of the multiplier.
+
+What the official 5/90 digital operator publishes (`590mobile.com.gh/tcs`, the NLA 5/90 channel):
+
+> "Stake" shall mean **seventy-five (75%)** of the Debited Amount. … Direct 2 (2 Sure): "Stake" × 320 = "DA" × 240
+
+So on a 10 cedi debit the "stake" is 7.50 and the win is 7.50 × 320 = **2,400**, i.e. 240× the
+amount debited. A kiosk paying 2,000 is quoting 200× — a **17% worse price**. Both are now
+representable:
+
+- `setPriceOverrides()` re-prices the table, and every EV, coverage and confidence figure with it
+- the Play smart page has a **"The price you are actually paid"** panel, one field per ticket,
+  saved in the browser; clearing a field restores the published price
+- with 200× the 2-Sure still ranks first, but returns **0.50** per 1.00 instead of 0.60 — the
+  ranking survives, the margin does not
+
+An EV table built on the wrong price is worse than no table, because it is confidently wrong about
+the one number a player can actually check.
+
+### "Does 2-Sure mean a better chance?"
+
+Two different questions hide in that sentence, and they have two different answers:
+
+| | 2-Sure (Direct 2) | Five numbers (Direct 5) |
+|---|---|---|
+| Chance per line | **1 in 401** (0.25%) | 1 in 43,949,268 |
+| Pays | 240× | 44,000× |
+| Returns per 1.00 staked | **0.60** | 0.0010 |
+
+So the 2-Sure lands about **109,736× more often** and pays **183× less**, and it keeps 60% of
+stake against 0.10% — it wins more often *and* is better value. That is not a loophole in the
+game; it is the market pricing a small prize close to fairly and a huge prize absurdly.
+
+The name is the trap. "2 sure" is the counter's word, not the arithmetic's: it lands about once in
+401 tries. And for the highest chance of winning *something* per cedi, Direct 1 beats it — 1 in 90,
+at 0.44 back per 1.00. Three different answers, three different goals.
+
+### Does recording the walk time and the spin time help?
+
+Almost certainly not, and the tool says so with numbers rather than attitude.
+
+**The mechanism.** After the drum is sealed, which ball leaves first is fixed by the ball positions,
+the mixing impulses and the release geometry. Broadcast timing is a coarse proxy for *duration* —
+and duration does not decide which ball is where. The one way timing leaks information is an
+under-mixed drum whose **loading order** you can see; you cannot see it, so a positional bias tells
+you nothing about which number sits where.
+
+**The arithmetic, which is decisive.** Direct 1 pays 40×. Breaking even therefore needs your number
+to be the first ball **2.50%** of the time, against a chance baseline of 1.11% — a **2.25× lift**.
+A drum defect that large would be obvious to the operator, not discoverable in a player's notebook.
+
+**The test, if you want to run it anyway.** The timing journal does a chi-square test of independence
+between walk-time tercile and first-ball decile, with a Monte-Carlo p-value. `requiredEntries()`
+states what it takes to see each effect size at 80% power:
+
+| Association (Cramér's V) | Reads as | Timings needed |
+|---|---|---|
+| 0.25 | strong | 177 evenings |
+| 0.15 | middling | 491 evenings |
+| 0.10 | weak | 1,104 evenings |
+
+The journal then reports `detectableV(entries)` — the weakest link the entries on file could
+actually resolve — so a blank result at 40 entries is described as "not enough data", never as proof.
+
+Record it if you enjoy recording it. Just log the walk time **before** the numbers appear, and never
+let a notable hit change the story afterwards.
+
 ### The result check audits every ticket, not just the trio
 
 "Last draw vs the engine" used to compare only the 3-number trio, which hid the ticket that

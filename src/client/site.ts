@@ -8,7 +8,7 @@
  */
 import { GAME_WEEKDAY, GAMES } from '../types';
 import { formatDrawDate, nextOpenDraw } from '../mathEngine';
-import { betTypes, coverage, linesForConfidence } from '../bets';
+import { NLA_MULTIPLIERS, betTypes, coverage, guarantee, linesForConfidence } from '../bets';
 import { isDrawPast, scorePickBook } from '../pickBook';
 import { collisionsDuringWalk, collisionsToMix, effectiveMixSeconds } from '../mixing';
 import { badge, balls, card, drawWhen, esc, pct, stat, targetHeading, tinyPct } from './format';
@@ -455,7 +455,15 @@ function lineCard(state: AppState): string {
         two ? `pays ${two.multiplier.toLocaleString()}×` : 'pays 240×',
         two ? `1 in ${n0(two.oneIn)}` : '1 in 401',
         two ? `${pct(two.probability, 2)} per draw` : '',
-      ], 'The least-bad ticket on the board: it returns about 0.60 per 1.00 staked, so it loses slowly rather than quickly.')}
+      ], 'The least-bad ticket on the board: it returns about 0.60 per 1.00 staked, so it loses slowly rather than quickly. "Sure" is the market\'s word, not the arithmetic\'s — it lands about once in 401 tries.')}
+      ${two && perm
+        ? `<p class="mb-2 rounded-lg border border-white/10 bg-black/20 px-2.5 py-2 text-[10px] leading-relaxed text-slate-400">
+            Same 1.00 on each: the 2-Sure lands <b class="text-slate-200">${n0(perm.oneIn / two.oneIn)}× more often</b>
+            than the five-number line and pays <b class="text-slate-200">${n0(perm.multiplier / two.multiplier)}× less</b>.
+            Per unit staked it keeps about ${Math.round(two.ev * 100)}%, against
+            ${(perm.ev * 100).toFixed(2)}% for the five — so it is both likelier to win and better value.
+          </p>`
+        : ''}
       ${row('3-Direct — all three must be drawn', trio, false, [
         three ? `pays ${three.multiplier.toLocaleString()}×` : 'pays 2,100×',
         three ? `1 in ${n0(three.oneIn)}` : '1 in 11,748',
@@ -750,6 +758,102 @@ export function renderSmart(state: AppState): string {
       of nothing in between. Direct 5 is a lottery within a lottery: it pays
       ${jackpot ? jackpot.multiplier.toLocaleString() : '44,000'}× on a 1-in-${jackpot ? n0(jackpot.oneIn) : '43,949,268'} shot.
     </p>
+
+    ${card(`
+      <h2 class="text-sm font-semibold text-slate-100">The price of certainty</h2>
+      <p class="mt-2 text-[12px] leading-relaxed text-slate-300">
+        Every "how do we get the chance to 100%" question ends here. Certainty is purchasable — it is
+        just always more expensive than the prize it collects.
+      </p>
+
+      <div class="mt-3 overflow-x-auto">
+        <table class="w-full min-w-[560px] text-left text-[11px]">
+          <thead class="text-[10px] uppercase tracking-wide text-slate-500">
+            <tr>
+              <th class="py-1 pr-2">Ticket</th>
+              <th class="py-1 pr-2">Lines to be certain</th>
+              <th class="py-1 pr-2">Stake</th>
+              <th class="py-1 pr-2">Collect</th>
+              <th class="py-1">Guaranteed net</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(['direct1', 'direct2', 'direct3', 'direct4', 'direct5'] as const)
+              .map((id) => {
+                const g = guarantee(id);
+                const bet = betTypes().find((b) => b.id === id)!;
+                return `<tr class="border-t border-white/5">
+                  <td class="py-1 pr-2 text-slate-100">${esc(bet.label)} <span class="text-slate-500">${bet.multiplier.toLocaleString()}×</span></td>
+                  <td class="py-1 pr-2 text-slate-300">${n0(g.lines)} <span class="text-slate-500">${g.exact ? 'exact' : 'at least'}</span></td>
+                  <td class="py-1 pr-2 text-slate-300">${n0(g.lines)}</td>
+                  <td class="py-1 pr-2 text-slate-300">${n0(g.payout)}</td>
+                  <td class="py-1 font-medium text-rose-300/90">−${n0(Math.abs(g.net))}</td>
+                </tr>`;
+              })
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <p class="mt-2 rounded-lg border border-rose-400/20 bg-rose-400/5 p-2.5 text-[11px] leading-relaxed text-rose-100/85">
+        Direct 1 is the clearest case: <b>90 lines cover every possible first ball</b>, exactly one of
+        them wins, and 40 comes back on 90 staked — a certain loss of 50. Buying the rest of the range
+        only makes the invoice larger. Where the count says "at least", the true minimum is unknown and
+        the real loss is bigger still.
+      </p>
+      <p class="mt-2 text-[11px] leading-relaxed text-slate-400">
+        So the answer to "can we raise the chance" is yes, to any figure you name, up to and including
+        one — and the bill for 100% is always larger than the payout. There is no line, count or
+        arrangement where that inequality reverses, because the multipliers are set below the odds on
+        purpose — 40× on a 1-in-90 shot, 240× on a 1-in-400.5 shot.
+      </p>
+      <p class="mt-2 text-[11px] leading-relaxed text-slate-400">
+        Which names the only arithmetic that could ever beat this game: a price <em>above</em> the fair
+        odds. At 90× on Direct 1 the guarantee would break exactly even; at 120× it would pay. If a
+        counter ever quotes you that, the likeliest explanation is a misread ticket rather than a gift —
+        but it is the one number worth checking, which is what the price panel above is for.
+      </p>`)}
+
+    ${card(`
+      <div class="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 class="text-sm font-semibold text-slate-100">The price you are actually paid</h2>
+          <p class="text-[11px] text-slate-400">
+            Every number on this page is only as true as its multiplier. Published NLA 5/90 prices are
+            shown; if your kiosk pays something else, put it in and the arithmetic follows.
+          </p>
+        </div>
+        ${badge(Object.keys(state.prices).length ? 'your prices' : 'published prices', Object.keys(state.prices).length ? 'info' : 'muted')}
+      </div>
+
+      <div class="mt-3 grid gap-2 text-[11px] sm:grid-cols-2 lg:grid-cols-5">
+        ${betTypes()
+          .slice()
+          .sort((a, b) => a.picks - b.picks)
+          .map((bet) => {
+            const custom = state.prices[bet.id];
+            return `<label class="block rounded-lg border ${custom ? 'border-amber-400/40 bg-amber-400/5' : 'border-white/10 bg-black/20'} p-2">
+              <span class="block text-[10px] uppercase tracking-wide text-slate-500">${esc(bet.label)}</span>
+              <span class="mt-0.5 flex items-baseline gap-1">
+                <input type="number" min="1" step="1" inputmode="numeric" data-action="set-price" data-bet="${bet.id}"
+                  value="${custom ?? NLA_MULTIPLIERS[bet.id]}" class="w-20 rounded border border-white/10 bg-black/30 px-1.5 py-0.5 text-[12px] text-slate-100" />
+                <span class="text-slate-500">×</span>
+              </span>
+              <span class="mt-0.5 block text-[10px] text-slate-500">
+                returns <b class="text-slate-300">${bet.ev.toFixed(2)}</b> per 1.00
+                ${custom ? `<span class="text-amber-300/80">· was ${(bet.probability * NLA_MULTIPLIERS[bet.id]).toFixed(2)}</span>` : ''}
+              </span>
+            </label>`;
+          })
+          .join('')}
+      </div>
+
+      <p class="mt-2 text-[10px] leading-snug text-slate-500">
+        The official 5/90 digital operator states that a player's "stake" is 75% of the amount debited
+        and pays Direct 2 at 320× that stake — 240× the debited amount, so 10 cedis returns 2,400. A
+        kiosk paying 2,000 on 10 is quoting 200×, a 17% worse price, and this table should say so rather
+        than quote a number you cannot collect. Clear a field to fall back to the published price.
+      </p>`)}
 
     ${card(`
       <div class="flex flex-wrap items-start justify-between gap-2">

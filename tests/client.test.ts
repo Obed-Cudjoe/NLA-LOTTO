@@ -398,6 +398,16 @@ describe('dashboard (static mode)', () => {
   });
 
   it('gives every section its own address', async () => {
+    await click('[data-action="goto"][data-page="tonight"]');
+    await waitFor(() => appText().includes('The line for this draw'), 'tonight line card');
+    expect(window.location.hash).toBe('#/tonight');
+    // "2-Sure" invites a misunderstanding the page must answer: likelier to win,
+    // far smaller prize — and "sure" is the market's word, not the arithmetic's.
+    expect(appText()).toContain('"Sure" is the market');
+    expect(appText()).toMatch(/109,736× more often/);
+    expect(appText()).toMatch(/183× less/);
+    expect(appText()).toContain('both likelier to win and better value');
+
     await click('[data-action="goto"][data-page="games"]');
     await waitFor(() => appText().includes('Six games, one a day'), 'games page');
     expect(window.location.hash).toBe('#/games');
@@ -418,6 +428,17 @@ describe('dashboard (static mode)', () => {
     expect(appText()).toContain('Direct 1 — “1 sure”');
     expect(appText()).toContain('Direct 2 — “2 sure”');
     expect(appText()).toContain('keep the printed ticket');
+
+    // The price is a variable, not a constant: the published 240x and a kiosk's
+    // 200x give different arithmetic, and the page must be able to say both.
+    expect(appText()).toContain('The price you are actually paid');
+    expect(appText()).toContain('240× the debited amount');
+    expect(document.querySelectorAll('[data-action="set-price"]').length).toBe(5);
+
+    // And the ceiling of the whole question: what certainty costs.
+    expect(appText()).toContain('The price of certainty');
+    expect(appText()).toContain('90 lines cover every possible first ball');
+    expect(appText()).toMatch(/−50/);
 
     // The honest answer to "how do we raise our chance": coverage and ticket
     // choice work, number selection does not.

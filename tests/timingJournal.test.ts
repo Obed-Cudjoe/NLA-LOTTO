@@ -3,6 +3,8 @@ import {
   analyseTimingJournal,
   journalToCsv,
   parseJournalCsv,
+  requiredEntries,
+  detectableV,
   type TimingEntry,
 } from '../src/timingJournal';
 
@@ -87,5 +89,32 @@ describe('timing journal', () => {
     const bad = parseJournalCsv('2026-01-01,Monday,abc,5,40\nnonsense,row\n2026-01-02,Monday,9,5,140');
     expect(bad.entries).toHaveLength(0);
     expect(bad.errors.length).toBe(3);
+  });
+});
+
+describe('requiredEntries — how much timing a question needs', () => {
+  it('demands more evenings for weaker associations', () => {
+    expect(requiredEntries(0.25)).toBeLessThan(requiredEntries(0.15));
+    expect(requiredEntries(0.15)).toBeLessThan(requiredEntries(0.10));
+  });
+
+  it('puts a strong link inside a season of draws, a weak one outside it', () => {
+    // 177 evenings is about six months of nightly draws.
+    expect(requiredEntries(0.25)).toBeGreaterThan(140);
+    expect(requiredEntries(0.25)).toBeLessThan(220);
+    // A 0.10 association is a multi-year project, which is the honest answer.
+    expect(requiredEntries(0.10)).toBeGreaterThan(900);
+  });
+
+  it('never promises a verdict from a handful of entries', () => {
+    expect(requiredEntries(0)).toBe(Number.POSITIVE_INFINITY);
+    expect(detectableV(20)).toBeGreaterThan(0.5);
+    expect(detectableV(200)).toBeLessThan(0.25);
+  });
+
+  it('reports the ladder on every journal result', () => {
+    const report = analyseTimingJournal([]);
+    expect(report.detectableV).toBe(1);
+    expect(report.power.map((p) => p.v)).toEqual([0.1, 0.15, 0.25]);
   });
 });

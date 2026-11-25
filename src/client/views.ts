@@ -891,6 +891,7 @@ export function renderLab(state: AppState): string {
   const bets = betTypes();
   const best = bets[0];
   const worst = bets[bets.length - 1];
+  const d1 = bets.find((b) => b.id === 'direct1') ?? bets[0];
   const maxEv = Math.max(...bets.map((b) => b.ev));
 
   const m = state.lab;
@@ -1157,7 +1158,38 @@ export function renderLab(state: AppState): string {
         </table>
       </div>
       <p class="mt-2 rounded-lg border border-white/10 bg-black/20 p-2.5 text-[11px] leading-relaxed text-slate-200">${esc(state.journalReport.verdict)}</p>
-      <p class="mt-1 text-[10px] leading-snug text-slate-500">${esc(state.journalReport.guidance)}</p>`
+      <p class="mt-1 text-[10px] leading-snug text-slate-500">${esc(state.journalReport.guidance)}</p>
+
+      <div class="mt-3 rounded-lg border border-white/10 bg-black/20 p-2.5">
+        <p class="text-[11px] font-medium text-slate-200">How much timing would this question need?</p>
+        <p class="mt-1 text-[10px] leading-snug text-slate-400">
+          A test can only see an association it has the sample to resolve. Cramér's V measures how
+          strongly walk time and the first ball move together; 0 is independence, 0.25 is already a
+          strong link for a physical process.
+        </p>
+        <table class="mt-1.5 w-full text-left text-[10px]">
+          <thead class="text-[9px] uppercase tracking-wide text-slate-500">
+            <tr><th class="py-0.5 pr-2">Association (V)</th><th class="py-0.5 pr-2">Reads as</th><th class="py-0.5">Timings needed</th></tr>
+          </thead>
+          <tbody>
+            ${state.journalReport.power
+              .map(
+                (row) => `<tr class="border-t border-white/5">
+                  <td class="py-0.5 pr-2 text-slate-200">${row.v.toFixed(2)}</td>
+                  <td class="py-0.5 pr-2 text-slate-400">${row.v >= 0.25 ? 'strong' : row.v >= 0.15 ? 'middling' : 'weak'}</td>
+                  <td class="py-0.5 text-slate-300">${row.entries.toLocaleString()} evenings</td>
+                </tr>`
+              )
+              .join('')}
+          </tbody>
+        </table>
+        <p class="mt-1.5 text-[10px] leading-snug ${state.journalReport.entries >= 60 ? 'text-slate-400' : 'text-amber-200/80'}">
+          With <b>${state.journalReport.entries}</b> timings on file, only an association of
+          V ≥ ${state.journalReport.detectableV.toFixed(2)} would show reliably — so a blank
+          result here rules out a large effect and says nothing about a small one.
+          ${state.journalReport.entries < 177 ? 'That is why the honest answer stays "not enough data yet".' : ''}
+        </p>
+      </div>`
           : `<p class="mt-3 text-[11px] text-slate-400">Log at least 8 timings to run the test. Record walk seconds <b>before</b> the numbers appear — logging afterwards biases everything.</p>`
       }
 
@@ -1180,6 +1212,11 @@ export function renderLab(state: AppState): string {
         <p><b class="text-amber-300">Neither condition holds for you.</b> You cannot see the loading
         order, and your archive shows no first-ball skew beyond chance. Without the loading order, a
         positional bias carries no information about which number is where.</p>
+        <p><b class="text-rose-300">And even a real first-ball bias would not pay.</b> Direct 1 pays
+        ${d1.multiplier}× , so it breaks even only if the first ball you name comes up
+        ${pct(1 / d1.multiplier, 2)} of the time — that is
+        <b>${(1 / d1.multiplier / (5 / 90)).toFixed(2)}× more often</b> than chance. A drum defect of
+        that size would be visible to the operator long before it was visible in your timing notes.</p>
         <p><b class="text-sky-300">What does help:</b> pick the ticket with the smallest house edge,
         stake a fixed small amount, and keep the ledger honest. That is a real, measurable
         improvement — from about ${(worst.ev * 100).toFixed(2)}% of stake back to

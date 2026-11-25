@@ -150,6 +150,36 @@ refresh now fires at `:15` every hour from 18:00 to 23:00 UTC, so a missed slot 
 the hour. An empty run commits nothing, and the job summary says whether today's result is stored
 or still outstanding.
 
+### Does recording the walk time and the spin time help?
+
+Almost certainly not, and the tool says so with numbers rather than attitude.
+
+**The mechanism.** After the drum is sealed, which ball leaves first is fixed by the ball positions,
+the mixing impulses and the release geometry. Broadcast timing is a coarse proxy for *duration* —
+and duration does not decide which ball is where. The one way timing leaks information is an
+under-mixed drum whose **loading order** you can see; you cannot see it, so a positional bias tells
+you nothing about which number sits where.
+
+**The arithmetic, which is decisive.** Direct 1 pays 40×. Breaking even therefore needs your number
+to be the first ball **2.50%** of the time, against a chance baseline of 1.11% — a **2.25× lift**.
+A drum defect that large would be obvious to the operator, not discoverable in a player's notebook.
+
+**The test, if you want to run it anyway.** The timing journal does a chi-square test of independence
+between walk-time tercile and first-ball decile, with a Monte-Carlo p-value. `requiredEntries()`
+states what it takes to see each effect size at 80% power:
+
+| Association (Cramér's V) | Reads as | Timings needed |
+|---|---|---|
+| 0.25 | strong | 177 evenings |
+| 0.15 | middling | 491 evenings |
+| 0.10 | weak | 1,104 evenings |
+
+The journal then reports `detectableV(entries)` — the weakest link the entries on file could
+actually resolve — so a blank result at 40 entries is described as "not enough data", never as proof.
+
+Record it if you enjoy recording it. Just log the walk time **before** the numbers appear, and never
+let a notable hit change the story afterwards.
+
 ### The result check audits every ticket, not just the trio
 
 "Last draw vs the engine" used to compare only the 3-number trio, which hid the ticket that

@@ -24,6 +24,9 @@
 
 const BALLS = 90;
 
+/** Association strengths worth planning for: weak, middling, strong. */
+const POWER_LADDER = [0.10, 0.15, 0.25];
+
 /** One observed draw, as logged by the player. */
 export interface TimingEntry {
   /** ISO date of the draw. */
@@ -40,6 +43,58 @@ export interface TimingEntry {
   note?: string;
 }
 
+/**
+ * How many timings a given effect size needs before this test can see it.
+ *
+ * Cramér's V is the association strength; the table is 3 x 9, so df = 16 and the
+ * non-centrality a real effect of size V produces is n * V^2 * 2. Power is
+ * approximated from the normal approximation to the non-central chi-square —
+ * good enough to tell a player whether they need 40 evenings or 400, which is
+ * the only decision this number has to support.
+ */
+export function requiredEntries(
+  v: number,
+  { alpha = 0.05, power = 0.8 }: { alpha?: number; power?: number } = {}
+): number {
+  if (!(v > 0)) return Number.POSITIVE_INFINITY;
+  const df = 16;
+  // Chi-square critical value at `alpha`, Wilson–Hilferty approximation.
+  const zA = 1.959964; // alpha = 0.05, two-sided
+  const h = 2 / (9 * df);
+  const crit = df * Math.pow(1 - h + zA * Math.sqrt(h), 3);
+  const zB = 0.841621; // power = 0.8
+  const lambdaFor = (n: number): number => n * v * v * 2;
+  let lo = 1;
+  let hi = 1;
+  // Bracket the answer, then bisect on the power condition.
+  const ok = (n: number): boolean => {
+    const lambda = lambdaFor(n);
+    const mean = df + lambda;
+    const sd = Math.sqrt(2 * (df + 2 * lambda));
+    return (mean - crit) / sd >= zB;
+  };
+  while (!ok(hi) && hi < 1e7) hi *= 2;
+  for (let i = 0; i < 100; i++) {
+    const mid = (lo + hi) / 2;
+    if (ok(mid)) hi = mid;
+    else lo = mid;
+  }
+  return Math.ceil(hi);
+}
+
+/** The weakest association (Cramér's V) that `entries` timings could detect. */
+export function detectableV(entries: number): number {
+  if (!(entries > 0)) return 1;
+  let lo = 0.001;
+  let hi = 1;
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2;
+    if (requiredEntries(mid) <= entries) hi = mid;
+    else lo = mid;
+  }
+  return hi;
+}
+
 export interface JournalReport {
   entries: number;
   /** Terciles of walk time actually observed, as [low, mid, high] second values. */
@@ -54,6 +109,10 @@ export interface JournalReport {
   verdict: string;
   /** How much data is needed before the verdict means anything. */
   guidance: string;
+  /** Entries needed to detect a weak / middling / strong association. */
+  power: Array<{ v: number; entries: number }>;
+  /** Weakest association the entries on file could detect. */
+  detectableV: number;
   /** Per-tercile summary, for the table. */
   byTercile: Array<{ label: string; from: number; to: number; draws: number; meanFirstBall: number }>;
 }
@@ -115,6 +174,8 @@ export function emptyJournalReport(): JournalReport {
     cramersV: 0,
     verdict: 'No timings logged yet — nothing to test.',
     guidance: '',
+    power: POWER_LADDER.map((v) => ({ v, entries: requiredEntries(v) })),
+    detectableV: 1,
     byTercile: [],
   };
 }
@@ -147,6 +208,8 @@ export function analyseTimingJournal(
           ? 'No timings logged yet — nothing to test.'
           : `Only ${usable.length} timings logged. The test needs at least 8 to build a table, and a few hundred before a negative result means anything.`,
       guidance: 'Log walk seconds before each draw; the journal is saved in this browser and exports to CSV.',
+      power: POWER_LADDER.map((v) => ({ v, entries: requiredEntries(v) })),
+      detectableV: detectableV(usable.length),
     };
   }
 
@@ -207,7 +270,19 @@ export function analyseTimingJournal(
   const guidance =
     'Pre-register the test: log walk seconds before the numbers appear, aim for 300+ entries, and treat a single significant result at this sample size as a hint, not a finding.';
 
-  return { entries: n, terciles: { low: t1, mid: t2, high: walks[walks.length - 1] }, chiSquare, df, pValue, cramersV, verdict, guidance, byTercile };
+  return {
+    entries: n,
+    terciles: { low: t1, mid: t2, high: walks[walks.length - 1] },
+    chiSquare,
+    df,
+    pValue,
+    cramersV,
+    verdict,
+    guidance,
+    power: POWER_LADDER.map((v) => ({ v, entries: requiredEntries(v) })),
+    detectableV: detectableV(n),
+    byTercile,
+  };
 }
 
 /** CSV in the same shape the app exports, so a spreadsheet can extend it. */

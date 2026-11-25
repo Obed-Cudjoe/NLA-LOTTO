@@ -150,6 +150,24 @@ refresh now fires at `:15` every hour from 18:00 to 23:00 UTC, so a missed slot 
 the hour. An empty run commits nothing, and the job summary says whether today's result is stored
 or still outstanding.
 
+### "Does 2-Sure mean a better chance?"
+
+Two different questions hide in that sentence, and they have two different answers:
+
+| | 2-Sure (Direct 2) | Five numbers (Direct 5) |
+|---|---|---|
+| Chance per line | **1 in 401** (0.25%) | 1 in 43,949,268 |
+| Pays | 240× | 44,000× |
+| Returns per 1.00 staked | **0.60** | 0.0010 |
+
+So the 2-Sure lands about **109,736× more often** and pays **183× less**, and it keeps 60% of
+stake against 0.10% — it wins more often *and* is better value. That is not a loophole in the
+game; it is the market pricing a small prize close to fairly and a huge prize absurdly.
+
+The name is the trap. "2 sure" is the counter's word, not the arithmetic's: it lands about once in
+401 tries. And for the highest chance of winning *something* per cedi, Direct 1 beats it — 1 in 90,
+at 0.44 back per 1.00. Three different answers, three different goals.
+
 ### Does recording the walk time and the spin time help?
 
 Almost certainly not, and the tool says so with numbers rather than attitude.

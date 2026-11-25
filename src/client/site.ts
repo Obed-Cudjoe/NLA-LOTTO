@@ -455,7 +455,15 @@ function lineCard(state: AppState): string {
         two ? `pays ${two.multiplier.toLocaleString()}×` : 'pays 240×',
         two ? `1 in ${n0(two.oneIn)}` : '1 in 401',
         two ? `${pct(two.probability, 2)} per draw` : '',
-      ], 'The least-bad ticket on the board: it returns about 0.60 per 1.00 staked, so it loses slowly rather than quickly.')}
+      ], 'The least-bad ticket on the board: it returns about 0.60 per 1.00 staked, so it loses slowly rather than quickly. "Sure" is the market\'s word, not the arithmetic\'s — it lands about once in 401 tries.')}
+      ${two && perm
+        ? `<p class="mb-2 rounded-lg border border-white/10 bg-black/20 px-2.5 py-2 text-[10px] leading-relaxed text-slate-400">
+            Same 1.00 on each: the 2-Sure lands <b class="text-slate-200">${n0(perm.oneIn / two.oneIn)}× more often</b>
+            than the five-number line and pays <b class="text-slate-200">${n0(perm.multiplier / two.multiplier)}× less</b>.
+            Per unit staked it keeps about ${Math.round(two.ev * 100)}%, against
+            ${(perm.ev * 100).toFixed(2)}% for the five — so it is both likelier to win and better value.
+          </p>`
+        : ''}
       ${row('3-Direct — all three must be drawn', trio, false, [
         three ? `pays ${three.multiplier.toLocaleString()}×` : 'pays 2,100×',
         three ? `1 in ${n0(three.oneIn)}` : '1 in 11,748',

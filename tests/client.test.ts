@@ -398,6 +398,16 @@ describe('dashboard (static mode)', () => {
   });
 
   it('gives every section its own address', async () => {
+    await click('[data-action="goto"][data-page="tonight"]');
+    await waitFor(() => appText().includes('The line for this draw'), 'tonight line card');
+    expect(window.location.hash).toBe('#/tonight');
+    // "2-Sure" invites a misunderstanding the page must answer: likelier to win,
+    // far smaller prize — and "sure" is the market's word, not the arithmetic's.
+    expect(appText()).toContain('"Sure" is the market');
+    expect(appText()).toMatch(/109,736× more often/);
+    expect(appText()).toMatch(/183× less/);
+    expect(appText()).toContain('both likelier to win and better value');
+
     await click('[data-action="goto"][data-page="games"]');
     await waitFor(() => appText().includes('Six games, one a day'), 'games page');
     expect(window.location.hash).toBe('#/games');

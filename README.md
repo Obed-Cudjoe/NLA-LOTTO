@@ -150,6 +150,27 @@ refresh now fires at `:15` every hour from 18:00 to 23:00 UTC, so a missed slot 
 the hour. An empty run commits nothing, and the job summary says whether today's result is stored
 or still outstanding.
 
+### The price of certainty
+
+If any question about this game has an exact answer, it is "what would 100% cost?"
+
+| Ticket | Lines to be certain | Stake | Collect | Guaranteed net |
+|---|---|---|---|---|
+| Direct 1 | **90** (exact) | 90 | 40 | **−50** |
+| Direct 2 | 401 (at least) | 401 | 240 | −161 |
+| Direct 3 | 11,748 (at least) | 11,748 | 2,100 | −9,648 |
+| Direct 4 | 511,038 (at least) | 511,038 | 6,000 | −505,038 |
+| Direct 5 | **43,949,268** (exact) | 43,949,268 | 44,000 | **−43,905,268** |
+
+Direct 1 is the clean case: 90 lines cover every possible first ball, exactly one wins, and 40 comes
+back on 90 staked. The "at least" rows are covering-design floors — one line of k numbers sits inside
+C(90−k, 5−k) possible draws — so the true minimum, and the true loss, is larger still.
+
+The only arithmetic that reverses this is a price **above** the fair odds (90× on Direct 1, 400.5× on
+Direct 2). At 120× the Direct 1 guarantee would pay 30. A real counter quoting that is almost
+certainly misreading a ticket — but it is the one number worth checking, which is what the editable
+price panel exists for.
+
 ### The price is a variable, not a constant
 
 A reader reported that **10 cedis on a 2-Sure returns 2,000** at their counter — 200×, not the

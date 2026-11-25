@@ -8,7 +8,7 @@
  */
 import { GAME_WEEKDAY, GAMES } from '../types';
 import { formatDrawDate, nextOpenDraw } from '../mathEngine';
-import { NLA_MULTIPLIERS, betTypes, coverage, linesForConfidence } from '../bets';
+import { NLA_MULTIPLIERS, betTypes, coverage, guarantee, linesForConfidence } from '../bets';
 import { isDrawPast, scorePickBook } from '../pickBook';
 import { collisionsDuringWalk, collisionsToMix, effectiveMixSeconds } from '../mixing';
 import { badge, balls, card, drawWhen, esc, pct, stat, targetHeading, tinyPct } from './format';
@@ -758,6 +758,61 @@ export function renderSmart(state: AppState): string {
       of nothing in between. Direct 5 is a lottery within a lottery: it pays
       ${jackpot ? jackpot.multiplier.toLocaleString() : '44,000'}× on a 1-in-${jackpot ? n0(jackpot.oneIn) : '43,949,268'} shot.
     </p>
+
+    ${card(`
+      <h2 class="text-sm font-semibold text-slate-100">The price of certainty</h2>
+      <p class="mt-2 text-[12px] leading-relaxed text-slate-300">
+        Every "how do we get the chance to 100%" question ends here. Certainty is purchasable — it is
+        just always more expensive than the prize it collects.
+      </p>
+
+      <div class="mt-3 overflow-x-auto">
+        <table class="w-full min-w-[560px] text-left text-[11px]">
+          <thead class="text-[10px] uppercase tracking-wide text-slate-500">
+            <tr>
+              <th class="py-1 pr-2">Ticket</th>
+              <th class="py-1 pr-2">Lines to be certain</th>
+              <th class="py-1 pr-2">Stake</th>
+              <th class="py-1 pr-2">Collect</th>
+              <th class="py-1">Guaranteed net</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(['direct1', 'direct2', 'direct3', 'direct4', 'direct5'] as const)
+              .map((id) => {
+                const g = guarantee(id);
+                const bet = betTypes().find((b) => b.id === id)!;
+                return `<tr class="border-t border-white/5">
+                  <td class="py-1 pr-2 text-slate-100">${esc(bet.label)} <span class="text-slate-500">${bet.multiplier.toLocaleString()}×</span></td>
+                  <td class="py-1 pr-2 text-slate-300">${n0(g.lines)} <span class="text-slate-500">${g.exact ? 'exact' : 'at least'}</span></td>
+                  <td class="py-1 pr-2 text-slate-300">${n0(g.lines)}</td>
+                  <td class="py-1 pr-2 text-slate-300">${n0(g.payout)}</td>
+                  <td class="py-1 font-medium text-rose-300/90">−${n0(Math.abs(g.net))}</td>
+                </tr>`;
+              })
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <p class="mt-2 rounded-lg border border-rose-400/20 bg-rose-400/5 p-2.5 text-[11px] leading-relaxed text-rose-100/85">
+        Direct 1 is the clearest case: <b>90 lines cover every possible first ball</b>, exactly one of
+        them wins, and 40 comes back on 90 staked — a certain loss of 50. Buying the rest of the range
+        only makes the invoice larger. Where the count says "at least", the true minimum is unknown and
+        the real loss is bigger still.
+      </p>
+      <p class="mt-2 text-[11px] leading-relaxed text-slate-400">
+        So the answer to "can we raise the chance" is yes, to any figure you name, up to and including
+        one — and the bill for 100% is always larger than the payout. There is no line, count or
+        arrangement where that inequality reverses, because the multipliers are set below the odds on
+        purpose — 40× on a 1-in-90 shot, 240× on a 1-in-400.5 shot.
+      </p>
+      <p class="mt-2 text-[11px] leading-relaxed text-slate-400">
+        Which names the only arithmetic that could ever beat this game: a price <em>above</em> the fair
+        odds. At 90× on Direct 1 the guarantee would break exactly even; at 120× it would pay. If a
+        counter ever quotes you that, the likeliest explanation is a misread ticket rather than a gift —
+        but it is the one number worth checking, which is what the price panel above is for.
+      </p>`)}
 
     ${card(`
       <div class="flex flex-wrap items-start justify-between gap-2">

@@ -7,7 +7,9 @@ import {
   directProbability,
   expectedReturn,
   linesForConfidence,
-  probabilityOfMatch, setPriceOverrides,
+  probabilityOfMatch,
+  setPriceOverrides,
+  guarantee,
 } from '../src/bets';
 
 describe('NLA bet types and their exact value', () => {
@@ -104,5 +106,46 @@ describe('prices the player is actually paid', () => {
     setPriceOverrides({ direct2: 0, direct3: Number.NaN, nonsense: 5 } as never);
     expect(betTypes().find((b) => b.id === 'direct2')!.multiplier).toBe(240);
     expect(betTypes().find((b) => b.id === 'direct3')!.multiplier).toBe(2100);
+  });
+});
+
+describe('guarantee — the invoice for certainty', () => {
+  afterEach(() => setPriceOverrides({}));
+
+  it('prices a certain Direct 1 win exactly: 90 lines, −50', () => {
+    const g = guarantee('direct1');
+    expect(g.lines).toBe(90);
+    expect(g.exact).toBe(true);
+    expect(g.payout).toBe(40);
+    expect(g.net).toBe(-50);
+  });
+
+  it('needs every combination of five, and loses 43.9 million', () => {
+    const g = guarantee('direct5');
+    expect(g.lines).toBe(43_949_268);
+    expect(g.exact).toBe(true);
+    expect(g.net).toBe(44_000 - 43_949_268);
+  });
+
+  it('gives only a floor for the middle tickets, never a flattering one', () => {
+    const two = guarantee('direct2');
+    expect(two.exact).toBe(false);
+    expect(two.lines).toBe(401); // ceil(1 / (10/4005))
+    expect(two.net).toBe(240 - 401);
+  });
+
+  it('never pays at any published price', () => {
+    for (const id of ['direct1', 'direct2', 'direct3', 'direct4', 'direct5'] as const) {
+      expect(guarantee(id).net).toBeLessThan(0);
+    }
+  });
+
+  it('would pay only at a price above the fair odds — the one thing worth checking', () => {
+    // Direct 1 is a 1-in-90 bet, so 90× is the fair price and 40× is the offer.
+    setPriceOverrides({ direct1: 120 });
+    expect(guarantee('direct1').net).toBe(30); // 120 × 1 win − 90 lines
+    // Any real counter at that price is almost certainly misquoting the ticket.
+    setPriceOverrides({ direct1: 40 });
+    expect(guarantee('direct1').net).toBe(-50);
   });
 });

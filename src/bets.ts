@@ -191,3 +191,42 @@ export function linesForConfidence(betId: BetId, confidence: number): number {
   const c = Math.min(0.999999, Math.max(0.000001, confidence));
   return Math.ceil(Math.log(1 - c) / Math.log(1 - bet.probability));
 }
+
+/**
+ * The invoice for certainty: what it costs to *guarantee* a win on a ticket.
+ *
+ * Every "can we raise the chance to 100%" question ends here. For Direct 1 the
+ * answer is exact and cheap to state: 90 lines, one per possible first ball,
+ * exactly one of which wins — 90 staked for 40 back, a certain loss of 50.
+ *
+ * For the multi-number tickets a guarantee needs a covering design: a set of
+ * lines such that every one of the C(90,5) possible draws contains at least one
+ * of them. Counting gives a hard floor — one line of k numbers sits inside
+ * C(90-k, 5-k) of those draws — so `lines` is a lower bound whenever `exact` is
+ * false, and the true figure is at least that.
+ */
+export function guarantee(betId: BetId): {
+  lines: number;
+  exact: boolean;
+  payout: number;
+  /** Best case for a perfect design: one winning line, every non-winning line lost. */
+  net: number;
+  note: string;
+} {
+  const bet = betTypes().find((b) => b.id === betId) ?? bestBet();
+  const exact = bet.picks === 1 || bet.picks === BALLS - WINNING_COUNT + 1 || bet.picks === 5;
+  const lines = bet.picks === 1 ? BALLS : Math.ceil(1 / bet.probability);
+  const payout = bet.multiplier;
+  return {
+    lines,
+    exact,
+    payout,
+    net: payout - lines,
+    note:
+      bet.picks === 1
+        ? 'One line covers one possible first ball, so 90 lines cover all of them — exactly one wins.'
+        : bet.picks === 5
+          ? 'Every combination of five must be bought, because each one is a separate way to win.'
+          : 'A covering design: enough lines that no draw of five can avoid all of them.',
+  };
+}

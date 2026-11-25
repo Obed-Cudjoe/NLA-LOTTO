@@ -435,6 +435,11 @@ describe('dashboard (static mode)', () => {
     expect(appText()).toContain('240× the debited amount');
     expect(document.querySelectorAll('[data-action="set-price"]').length).toBe(5);
 
+    // And the ceiling of the whole question: what certainty costs.
+    expect(appText()).toContain('The price of certainty');
+    expect(appText()).toContain('90 lines cover every possible first ball');
+    expect(appText()).toMatch(/−50/);
+
     // The honest answer to "how do we raise our chance": coverage and ticket
     // choice work, number selection does not.
     await waitFor(() => appText().includes('What actually raises your chance'), 'levers card');

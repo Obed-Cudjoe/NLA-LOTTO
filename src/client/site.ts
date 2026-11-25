@@ -8,7 +8,7 @@
  */
 import { GAME_WEEKDAY, GAMES } from '../types';
 import { formatDrawDate, nextOpenDraw } from '../mathEngine';
-import { betTypes, coverage, linesForConfidence } from '../bets';
+import { NLA_MULTIPLIERS, betTypes, coverage, linesForConfidence } from '../bets';
 import { isDrawPast, scorePickBook } from '../pickBook';
 import { collisionsDuringWalk, collisionsToMix, effectiveMixSeconds } from '../mixing';
 import { badge, balls, card, drawWhen, esc, pct, stat, targetHeading, tinyPct } from './format';
@@ -758,6 +758,47 @@ export function renderSmart(state: AppState): string {
       of nothing in between. Direct 5 is a lottery within a lottery: it pays
       ${jackpot ? jackpot.multiplier.toLocaleString() : '44,000'}× on a 1-in-${jackpot ? n0(jackpot.oneIn) : '43,949,268'} shot.
     </p>
+
+    ${card(`
+      <div class="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 class="text-sm font-semibold text-slate-100">The price you are actually paid</h2>
+          <p class="text-[11px] text-slate-400">
+            Every number on this page is only as true as its multiplier. Published NLA 5/90 prices are
+            shown; if your kiosk pays something else, put it in and the arithmetic follows.
+          </p>
+        </div>
+        ${badge(Object.keys(state.prices).length ? 'your prices' : 'published prices', Object.keys(state.prices).length ? 'info' : 'muted')}
+      </div>
+
+      <div class="mt-3 grid gap-2 text-[11px] sm:grid-cols-2 lg:grid-cols-5">
+        ${betTypes()
+          .slice()
+          .sort((a, b) => a.picks - b.picks)
+          .map((bet) => {
+            const custom = state.prices[bet.id];
+            return `<label class="block rounded-lg border ${custom ? 'border-amber-400/40 bg-amber-400/5' : 'border-white/10 bg-black/20'} p-2">
+              <span class="block text-[10px] uppercase tracking-wide text-slate-500">${esc(bet.label)}</span>
+              <span class="mt-0.5 flex items-baseline gap-1">
+                <input type="number" min="1" step="1" inputmode="numeric" data-action="set-price" data-bet="${bet.id}"
+                  value="${custom ?? NLA_MULTIPLIERS[bet.id]}" class="w-20 rounded border border-white/10 bg-black/30 px-1.5 py-0.5 text-[12px] text-slate-100" />
+                <span class="text-slate-500">×</span>
+              </span>
+              <span class="mt-0.5 block text-[10px] text-slate-500">
+                returns <b class="text-slate-300">${bet.ev.toFixed(2)}</b> per 1.00
+                ${custom ? `<span class="text-amber-300/80">· was ${(bet.probability * NLA_MULTIPLIERS[bet.id]).toFixed(2)}</span>` : ''}
+              </span>
+            </label>`;
+          })
+          .join('')}
+      </div>
+
+      <p class="mt-2 text-[10px] leading-snug text-slate-500">
+        The official 5/90 digital operator states that a player's "stake" is 75% of the amount debited
+        and pays Direct 2 at 320× that stake — 240× the debited amount, so 10 cedis returns 2,400. A
+        kiosk paying 2,000 on 10 is quoting 200×, a 17% worse price, and this table should say so rather
+        than quote a number you cannot collect. Clear a field to fall back to the published price.
+      </p>`)}
 
     ${card(`
       <div class="flex flex-wrap items-start justify-between gap-2">

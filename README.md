@@ -150,6 +150,29 @@ refresh now fires at `:15` every hour from 18:00 to 23:00 UTC, so a missed slot 
 the hour. An empty run commits nothing, and the job summary says whether today's result is stored
 or still outstanding.
 
+### The price is a variable, not a constant
+
+A reader reported that **10 cedis on a 2-Sure returns 2,000** at their counter — 200×, not the
+published 240×. Both numbers are worth having, because every figure in this project is downstream
+of the multiplier.
+
+What the official 5/90 digital operator publishes (`590mobile.com.gh/tcs`, the NLA 5/90 channel):
+
+> "Stake" shall mean **seventy-five (75%)** of the Debited Amount. … Direct 2 (2 Sure): "Stake" × 320 = "DA" × 240
+
+So on a 10 cedi debit the "stake" is 7.50 and the win is 7.50 × 320 = **2,400**, i.e. 240× the
+amount debited. A kiosk paying 2,000 is quoting 200× — a **17% worse price**. Both are now
+representable:
+
+- `setPriceOverrides()` re-prices the table, and every EV, coverage and confidence figure with it
+- the Play smart page has a **"The price you are actually paid"** panel, one field per ticket,
+  saved in the browser; clearing a field restores the published price
+- with 200× the 2-Sure still ranks first, but returns **0.50** per 1.00 instead of 0.60 — the
+  ranking survives, the margin does not
+
+An EV table built on the wrong price is worse than no table, because it is confidently wrong about
+the one number a player can actually check.
+
 ### "Does 2-Sure mean a better chance?"
 
 Two different questions hide in that sentence, and they have two different answers:

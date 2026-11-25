@@ -13,6 +13,7 @@ const KEYS = {
   ui: `${PREFIX}ui`,
   journal: `${PREFIX}journal`,
   pickBook: `${PREFIX}pickBook`,
+  prices: `${PREFIX}prices`,
 } as const;
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -70,6 +71,11 @@ export const loadJournal = (): TimingEntry[] => read<TimingEntry[]>(KEYS.journal
 export const saveJournal = (entries: TimingEntry[]): void => write(KEYS.journal, entries);
 
 /** Lines this browser has committed to, scored once the draw is known. */
+export const loadPrices = (): Partial<Record<string, number>> =>
+  read<Partial<Record<string, number>>>(KEYS.prices, {});
+export const savePrices = (prices: Partial<Record<string, number>>): void =>
+  write(KEYS.prices, prices);
+
 export const loadPickBook = (): PickRecord[] => read<PickRecord[]>(KEYS.pickBook, []);
 export const savePickBook = (book: PickRecord[]): void => write(KEYS.pickBook, book);
 

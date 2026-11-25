@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   NLA_MULTIPLIERS,
   betTypes,
@@ -7,7 +7,7 @@ import {
   directProbability,
   expectedReturn,
   linesForConfidence,
-  probabilityOfMatch,
+  probabilityOfMatch, setPriceOverrides,
 } from '../src/bets';
 
 describe('NLA bet types and their exact value', () => {
@@ -68,5 +68,41 @@ describe('NLA bet types and their exact value', () => {
     const lines = linesForConfidence('direct5', 0.5);
     expect(lines).toBeGreaterThan(3e7);
     expect(linesForConfidence('direct1', 0.5)).toBeGreaterThan(60);
+  });
+});
+
+describe('prices the player is actually paid', () => {
+  afterEach(() => setPriceOverrides({}));
+
+  it('defaults to the published multipliers', () => {
+    setPriceOverrides({});
+    const two = betTypes().find((b) => b.id === 'direct2')!;
+    expect(two.multiplier).toBe(240);
+    expect(two.ev).toBeCloseTo(0.5993, 3);
+  });
+
+  it('revalues the table when a kiosk pays 200x on 2-Sure', () => {
+    // 10 cedis stake returning 2,000 is 200x, not the published 240x.
+    setPriceOverrides({ direct2: 200 });
+    const two = betTypes().find((b) => b.id === 'direct2')!;
+    expect(two.multiplier).toBe(200);
+    expect(two.ev).toBeCloseTo(200 / 400.5, 4);
+    expect(two.ev).toBeCloseTo(0.4994, 3);
+    // Still the least-bad ticket, but the margin over Direct 1 narrows.
+    expect(betTypes()[0].id).toBe('direct2');
+    expect(betTypes()[0].ev).toBeLessThan(0.6);
+  });
+
+  it('flows through coverage and the confidence ladder', () => {
+    setPriceOverrides({ direct2: 200 });
+    const cov = coverage({ betId: 'direct2', lines: 278, stakePerLine: 1 });
+    expect(cov.expectedReturnValue).toBeCloseTo(278 * (200 / 400.5), 4);
+    expect(cov.netPerPlay).toBeLessThan(-100);
+  });
+
+  it('ignores nonsense and falls back to published prices', () => {
+    setPriceOverrides({ direct2: 0, direct3: Number.NaN, nonsense: 5 } as never);
+    expect(betTypes().find((b) => b.id === 'direct2')!.multiplier).toBe(240);
+    expect(betTypes().find((b) => b.id === 'direct3')!.multiplier).toBe(2100);
   });
 });

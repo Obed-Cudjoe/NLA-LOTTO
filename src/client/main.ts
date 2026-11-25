@@ -29,6 +29,7 @@ import {
   pickFromDeduction,
   scorePickBook,
 } from '../pickBook';
+import { setPriceOverrides } from '../bets';
 import { parsePayload } from '../scraper';
 import * as store from './store';
 import { destroyAllCharts, renderBacktestCharts } from './charts';
@@ -36,6 +37,9 @@ import { renderSite, renderPanelContent, hashFor, routeFromHash } from './site';
 import type { AppState, Mode, Page, Tone, View } from './types';
 
 const ui = store.loadUi();
+
+// The published multipliers are the default; a player's own price wins.
+setPriceOverrides(store.loadPrices());
 
 const state: AppState = {
   mode: 'static',
@@ -58,6 +62,7 @@ const state: AppState = {
   journal: store.loadJournal(),
   journalReport: null,
   stopwatch: { walkStart: null, walkSeconds: null, shakeStart: null, shakeSeconds: null },
+  prices: store.loadPrices(),
   pickBook: store.loadPickBook(),
   pickReport: emptyReport(),
   backtest: null,
@@ -704,6 +709,10 @@ function bindEvents(): void {
 
   document.addEventListener('change', (event) => {
     const el = event.target as HTMLInputElement | HTMLSelectElement;
+    if (el.dataset.action === 'set-price') {
+      void handleAction('set-price', el as unknown as HTMLElement);
+      return;
+    }
     if (el.id === 'game-select') {
       state.game = el.value;
       store.saveUi({ game: state.game });
@@ -923,6 +932,26 @@ async function handleAction(action: string, el: HTMLElement): Promise<void> {
       store.saveUi({ lab: state.lab });
       render();
       break;
+    case 'set-price': {
+      const id = el.getAttribute('data-bet') ?? '';
+      const raw = (el as HTMLInputElement).value.trim();
+      const next = { ...state.prices };
+      if (raw === '') delete next[id];
+      else {
+        const value = Number(raw);
+        if (!Number.isFinite(value) || value <= 0 || value > 1_000_000) {
+          toast('Enter a payout multiplier above zero, or clear it for the published price.', 'warn');
+          return;
+        }
+        next[id] = value;
+      }
+      state.prices = next;
+      store.savePrices(next);
+      setPriceOverrides(next);
+      recompute();
+      render();
+      break;
+    }
     case 'journal-add': {
       const date = (document.getElementById('j-date') as HTMLInputElement | null)?.value ?? '';
       const walk = Number((document.getElementById('j-walk') as HTMLInputElement | null)?.value);
@@ -1123,7 +1152,7 @@ async function boot(): Promise<void> {
   }
   try {
     state.mode = await detectMode();
-    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.11.1' };
+    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.12.0' };
     if (!state.settings.ghRepo.trim()) {
       const guess = repoGuess();
       if (guess) {

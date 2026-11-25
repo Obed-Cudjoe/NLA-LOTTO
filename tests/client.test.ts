@@ -429,6 +429,12 @@ describe('dashboard (static mode)', () => {
     expect(appText()).toContain('Direct 2 — “2 sure”');
     expect(appText()).toContain('keep the printed ticket');
 
+    // The price is a variable, not a constant: the published 240x and a kiosk's
+    // 200x give different arithmetic, and the page must be able to say both.
+    expect(appText()).toContain('The price you are actually paid');
+    expect(appText()).toContain('240× the debited amount');
+    expect(document.querySelectorAll('[data-action="set-price"]').length).toBe(5);
+
     // The honest answer to "how do we raise our chance": coverage and ticket
     // choice work, number selection does not.
     await waitFor(() => appText().includes('What actually raises your chance'), 'levers card');

@@ -27,6 +27,34 @@ export const NLA_MULTIPLIERS = {
 
 export type BetId = keyof typeof NLA_MULTIPLIERS;
 
+/**
+ * The prices the player is *actually* paid, when they differ from the published
+ * table. Kiosks and operators do diverge — a "2 sure" that returns 200× on a
+ * 10 cedi debit is 17% worse than the published 240× — and an EV table built on
+ * the wrong price is worse than no table at all. Defaults are the published
+ * multipliers; anything set here wins.
+ */
+let PRICE_OVERRIDES: Partial<Record<BetId, number>> = {};
+
+export function setPriceOverrides(overrides: Partial<Record<BetId, number>> = {}): void {
+  const clean: Partial<Record<BetId, number>> = {};
+  for (const [id, value] of Object.entries(overrides)) {
+    const key = id as BetId;
+    if (!(key in NLA_MULTIPLIERS)) continue;
+    if (typeof value === 'number' && Number.isFinite(value) && value > 0) clean[key] = value;
+  }
+  PRICE_OVERRIDES = clean;
+}
+
+export function priceOverrides(): Partial<Record<BetId, number>> {
+  return { ...PRICE_OVERRIDES };
+}
+
+/** The multiplier in force for a bet: the player's price if given, else published. */
+export function effectiveMultiplier(id: BetId): number {
+  return PRICE_OVERRIDES[id] ?? NLA_MULTIPLIERS[id];
+}
+
 export interface BetType {
   id: BetId;
   label: string;
@@ -93,7 +121,7 @@ export function betTypes(): BetType[] {
     .map((id) => {
       const picks = Number(id.replace('direct', ''));
       const probability = directProbability(picks);
-      const multiplier = NLA_MULTIPLIERS[id];
+      const multiplier = effectiveMultiplier(id);
       const ev = expectedReturn(probability, multiplier);
       return {
         id,

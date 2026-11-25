@@ -71,6 +71,8 @@ export interface AppState {
   };
   /** Test of whether walk time predicts the first ball. */
   journalReport: JournalReport | null;
+  /** Prices the player is actually paid, when they differ from the published table. */
+  prices: Partial<Record<string, number>>;
   /** Lines locked before a draw, so the record can be scored honestly. */
   pickBook: PickRecord[];
   /** How those lines have actually done, versus chance. */

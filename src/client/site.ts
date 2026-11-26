@@ -641,6 +641,22 @@ export function renderTonight(state: AppState): string {
  * table is more useful than repeating "the drum has no memory".
  * ------------------------------------------------------------------------ */
 
+
+/** "1 in 1.3" reads honestly; "1 in 1" would not. */
+function oneInLabel(oneIn: number): string {
+  if (oneIn < 10) return `1 in ${oneIn.toFixed(1)}`;
+  return `1 in ${Math.round(oneIn).toLocaleString('en-GB')}`;
+}
+
+/** Keep rare events legible instead of printing 0.00000%. */
+function pctLabel(p: number): string {
+  const pct = p * 100;
+  if (pct === 0) return '0%';
+  if (pct < 0.0001) return `${pct.toExponential(1).replace('e', 'e')}%`;
+  if (pct < 0.01) return `${pct.toFixed(4)}%`;
+  return `${pct.toFixed(2)}%`;
+}
+
 function nearMissCard(): string {
   const rows = hitLadder();
   const twoIn = rows[2].oneIn;
@@ -665,8 +681,8 @@ function nearMissCard(): string {
             .map(
               (r) => `<tr class="border-t border-white/5">
                 <td class="px-2 py-1 text-slate-200">${r.hits}</td>
-                <td class="px-2 py-1 text-slate-300">${(r.probability * 100).toFixed(r.hits >= 3 ? 5 : 2)}%</td>
-                <td class="px-2 py-1 text-slate-400">1 in ${Math.round(r.oneIn).toLocaleString('en-GB')}</td>
+                <td class="px-2 py-1 text-slate-300">${pctLabel(r.probability)}</td>
+                <td class="px-2 py-1 text-slate-400">${oneInLabel(r.oneIn)}</td>
                 <td class="px-2 py-1 ${r.hits === 5 ? 'text-emerald-300' : 'text-slate-500'}">${r.pays}</td>
               </tr>`
             )

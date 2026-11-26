@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { buildLedger, hitsDistribution, hitsTail, hypergeomPmf, ledgerToCsv, planHorizon } from '../src/trainingLog';
+import {
+  buildLedger,
+  hitLadder,
+  hitsDistribution,
+  hitsTail,
+  hypergeomPmf,
+  ledgerToCsv,
+  nearMissRecord,
+  planHorizon,
+} from '../src/trainingLog';
 
 describe('training ledger and the pre-registered horizon', () => {
   it('knows the one-draw distribution of hits on five numbers', () => {
@@ -44,5 +53,30 @@ describe('training ledger and the pre-registered horizon', () => {
     expect(l.draws).toBe(0);
     expect(l.pValue).toBe(1);
     expect(l.expectedHits).toBe(0);
+  });
+
+  it('prices the near miss: two of five is 1 in 44 and pays nothing', () => {
+    const ladder = hitLadder();
+    expect(ladder).toHaveLength(6);
+    expect(ladder[2].oneIn).toBeGreaterThan(43);
+    expect(ladder[2].oneIn).toBeLessThan(46);
+    expect(ladder[2].pays).toContain('nothing');
+    expect(ladder[5].pays).toContain('the prize');
+    expect(hitsTail(1, 2)).toBeCloseTo(0.0233, 3); // two or more, per draw
+  });
+
+  it('scores the near misses actually seen against what chance expects', () => {
+    const runs = [
+      ...Array.from({ length: 36 }, (_, i) => ({ draw_date: `2026-10-${i + 1}`, line5: [1, 2, 3, 4, 5], winning: [9, 10, 11, 12, 13], line5Hits: 0 })),
+      { draw_date: '2026-10-13', line5: [31, 46, 52, 60, 68], winning: [9, 23, 60, 63, 68], line5Hits: 2 },
+      { draw_date: '2026-10-16', line5: [12, 31, 46, 68, 78], winning: [22, 36, 46, 49, 68], line5Hits: 2 },
+    ];
+    const near = nearMissRecord(runs);
+    expect(near.draws).toBe(38);
+    expect(near.twoPlus).toBe(2);
+    expect(near.expectedTwoPlus).toBeCloseTo(0.89, 1);
+    expect(near.pAtLeast).toBeGreaterThan(0.15); // two in 38 is unremarkable
+    expect(near.pAtLeast).toBeLessThan(0.4);
+    expect(near.examples[0].hits).toBe(2);
   });
 });

@@ -38,7 +38,7 @@ import {
 } from './format';
 import { betTypes, coverage, linesForConfidence } from '../bets';
 import { isDrawPast } from '../pickBook';
-import { buildLedger, ledgerToCsv, planHorizon } from '../trainingLog';
+import { buildLedger, ledgerToCsv, nearMissRecord, planHorizon } from '../trainingLog';
 import {
   bestDirect1Ev,
   breakEvenShakeSeconds,
@@ -1318,6 +1318,7 @@ export function renderBacktest(state: AppState): string {
 
   const ledger = bt && bt.runs.length ? buildLedger(bt.runs) : null;
   const plan = planHorizon(7);
+  const near = nearMissRecord(bt?.runs ?? []);
   const ledgerCard = card(`
     <div class="flex flex-wrap items-start justify-between gap-2">
       <div>
@@ -1338,6 +1339,17 @@ export function renderBacktest(state: AppState): string {
             ${stat('2-Sure wins', String(ledger.pairHits), `expected ${num(ledger.pairExpected, 2)}`)}
             ${stat('Trio hits', String(ledger.trioHits), `expected ${num(ledger.trioExpected, 1)}`)}
           </div>
+          <p class="mt-2 text-[11px] leading-relaxed text-slate-400">
+            <b class="text-slate-200">${near.twoPlus} draw${near.twoPlus === 1 ? '' : 's'}</b> where two or
+            more of the five landed — chance expects
+            <b class="text-slate-200">${num(near.expectedTwoPlus, 2)}</b>, so seeing this many is
+            p ≈ ${num(near.pAtLeast, 2)}. A near miss is routine: ${near.examples.length
+              ? near.examples
+                  .slice(-2)
+                  .map((e) => `${esc(e.draw_date)} (${e.hits} of 5: ${e.winning.filter((n) => e.line5.includes(n)).join(', ')})`)
+                  .join(' · ')
+              : 'none recorded yet in this window'}.
+          </p>
           <div class="mt-3 max-h-64 overflow-auto rounded-lg border border-white/10">
             <table class="w-full min-w-[560px] text-left text-[11px]">
               <thead class="sticky top-0 bg-[#0b1120] text-[10px] uppercase tracking-wide text-slate-500">
@@ -1409,6 +1421,8 @@ export function renderBacktest(state: AppState): string {
   if (!bt) {
     return `
     <div class="mx-auto max-w-7xl space-y-4 px-4 py-4">
+      ${fitCard}
+      ${ledgerCard}
       ${controls}
       ${card(`<div class="py-10 text-center">
         <p class="text-sm text-slate-300">No backtest yet.</p>

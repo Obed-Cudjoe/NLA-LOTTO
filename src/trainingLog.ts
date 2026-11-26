@@ -176,3 +176,78 @@ export function ledgerToCsv(summary: LedgerSummary): string {
 
 /** Convenience for callers holding raw draws: not used by the UI. */
 export type LedgerDraw = Draw;
+
+/* ---------------------------------------------------------------------------
+ * The near-miss ladder.
+ *
+ * Two of five landing is the question that comes up most often, and the honest
+ * answer is uncomfortable: it happens in 1 draw in 42.9, and it pays nothing on
+ * the five-number ticket. It is a near-miss, not a signature. This ladder says
+ * so in numbers, so nobody has to take it on trust.
+ * ------------------------------------------------------------------------- */
+
+export interface LadderRow {
+  hits: number;
+  probability: number;
+  oneIn: number;
+  /** What the five-number ticket does at this many hits. */
+  pays: string;
+}
+
+export function hitLadder(): LadderRow[] {
+  return Array.from({ length: 6 }, (_, hits) => {
+    const probability = hypergeomPmf(hits);
+    return {
+      hits,
+      probability,
+      oneIn: 1 / probability,
+      pays: hits === 5 ? 'the prize' : 'nothing — the ticket is all five',
+    };
+  });
+}
+
+/** Chance that at least one of five specified numbers is drawn. */
+export const atLeastOne = (): number => hitsTail(1, 1);
+
+export interface NearMissRecord {
+  draws: number;
+  /** Draws where two or more of the published five landed. */
+  twoPlus: number;
+  expectedTwoPlus: number;
+  /** P(seeing at least this many such draws) if the line were chosen by chance. */
+  pAtLeast: number;
+  examples: Array<{ draw_date: string; line5: number[]; winning: number[]; hits: number }>;
+}
+
+/** How often two-or-more of the published five have actually landed. */
+export function nearMissRecord(
+  runs: ReadonlyArray<{ draw_date: string; line5: number[]; winning: number[]; line5Hits: number }>
+): NearMissRecord {
+  const draws = runs.length;
+  const twoPlusRuns = runs.filter((r) => r.line5Hits >= 2);
+  const p = hitsTail(1, 2);
+  const expectedTwoPlus = draws * p;
+  // Binomial tail: P(K >= observed) with K ~ Binomial(draws, p).
+  const choose = (n: number, r: number): number => {
+    if (r < 0 || r > n) return 0;
+    let out = 1;
+    for (let i = 0; i < r; i++) out = (out * (n - i)) / (i + 1);
+    return out;
+  };
+  let pAtLeast = 0;
+  for (let k = twoPlusRuns.length; k <= draws; k++) {
+    pAtLeast += choose(draws, k) * Math.pow(p, k) * Math.pow(1 - p, draws - k);
+  }
+  return {
+    draws,
+    twoPlus: twoPlusRuns.length,
+    expectedTwoPlus,
+    pAtLeast: Math.min(1, pAtLeast),
+    examples: twoPlusRuns.slice(-4).map((r) => ({
+      draw_date: r.draw_date,
+      line5: r.line5,
+      winning: r.winning,
+      hits: r.line5Hits,
+    })),
+  };
+}

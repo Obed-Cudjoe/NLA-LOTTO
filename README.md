@@ -160,6 +160,24 @@ warning naming exactly which evenings are missing, and pointing at the hourly re
 This exists because the site was briefly a day behind while confidently presenting itself as current.
 A tool whose whole value is that its numbers can be checked cannot be quietly stale.
 
+### What a near miss is worth
+
+Two of the five landing is the moment that most often gets mistaken for progress, so it is priced
+explicitly on the Tonight page:
+
+| Of our five drawn | Chance per draw | About | On the five-number ticket |
+|---|---|---|---|
+| 0 | 74.63% | 1 in 1.3 | nothing |
+| 1 | 23.04% | 1 in 4.3 | nothing |
+| **2** | **2.25%** | **1 in 44** | **nothing** |
+| 3 | 0.081% | 1 in 1,231 | nothing |
+| 4 | 0.001% | 1 in 103,410 | nothing |
+| 5 | 2.3e-6% | 1 in 43,949,268 | the prize |
+
+Two is a 1-in-44 evening that pays nothing — and it happens, which is why the ledger counts it rather
+than explaining it away. The backtester reports how many such draws the archive holds against the
+0.89 chance expects, with a binomial p-value, and names the dates.
+
 ### The training ledger, and a verdict written before the draws
 
 Every draw now becomes a scored row: the line the model published before it, what landed, how many

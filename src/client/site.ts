@@ -7,6 +7,7 @@
  * or a caveat — never a formula.
  */
 import { GAME_WEEKDAY, GAMES } from '../types';
+import { hitLadder } from '../trainingLog';
 import { addDays, drawWindowClosed, formatDrawDate, gameForDate, nextOpenDraw } from '../mathEngine';
 import { NLA_MULTIPLIERS, betTypes, coverage, doubleChance, guarantee, linesForConfidence, planForChance } from '../bets';
 import { isDrawPast, scorePickBook } from '../pickBook';
@@ -622,6 +623,7 @@ export function renderTonight(state: AppState): string {
   <div class="mx-auto mt-4 max-w-6xl space-y-3 px-4">
     ${archiveHealthCard(state)}
     ${lineCard(state)}
+    ${nearMissCard()}
     ${recordCard(state)}
   </div>
   ${renderDeduction(state)}`;
@@ -630,6 +632,55 @@ export function renderTonight(state: AppState): string {
 /* --------------------------------------------------------------------------
  * Results
  * ------------------------------------------------------------------------ */
+
+/* --------------------------------------------------------------------------
+ * What a near miss is worth
+ *
+ * "Two of the numbers came up." It happens in one draw in 42.9, and it pays
+ * nothing on a five-number ticket — the prize needs all five. Saying that in a
+ * table is more useful than repeating "the drum has no memory".
+ * ------------------------------------------------------------------------ */
+
+function nearMissCard(): string {
+  const rows = hitLadder();
+  const twoIn = rows[2].oneIn;
+  return card(`
+    <h2 class="text-sm font-semibold text-slate-100">What a near miss is worth</h2>
+    <p class="mt-1 max-w-3xl text-[11px] leading-relaxed text-slate-400">
+      Two of the five landing feels like the model nearly did it. It is worth knowing exactly how
+      ordinary that is, and exactly what it pays.
+    </p>
+    <div class="mt-3 overflow-x-auto rounded-lg border border-white/10">
+      <table class="w-full min-w-[440px] text-left text-[11px]">
+        <thead class="bg-[#0b1120] text-[10px] uppercase tracking-wide text-slate-500">
+          <tr>
+            <th class="px-2 py-1">Of our five drawn</th>
+            <th class="px-2 py-1">Chance per draw</th>
+            <th class="px-2 py-1">About</th>
+            <th class="px-2 py-1">On the five-number ticket</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows
+            .map(
+              (r) => `<tr class="border-t border-white/5">
+                <td class="px-2 py-1 text-slate-200">${r.hits}</td>
+                <td class="px-2 py-1 text-slate-300">${(r.probability * 100).toFixed(r.hits >= 3 ? 5 : 2)}%</td>
+                <td class="px-2 py-1 text-slate-400">1 in ${Math.round(r.oneIn).toLocaleString('en-GB')}</td>
+                <td class="px-2 py-1 ${r.hits === 5 ? 'text-emerald-300' : 'text-slate-500'}">${r.pays}</td>
+              </tr>`
+            )
+            .join('')}
+        </tbody>
+      </table>
+    </div>
+    <p class="mt-2 text-[11px] leading-relaxed text-slate-400">
+      So <b class="text-slate-200">two of five</b> is a <b class="text-slate-200">1-in-${Math.round(twoIn)}</b>
+      evening, and the ticket still returns nothing. It is a genuine signal about the ranking only if it
+      happens far more often than once every ${Math.round(twoIn)} draws — which is what the ledger on the
+      backtester measures, and what the pre-registered week above is watching.
+    </p>`);
+}
 
 export function renderResults(state: AppState): string {
   return `

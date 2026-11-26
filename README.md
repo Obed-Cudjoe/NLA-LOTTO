@@ -150,6 +150,64 @@ refresh now fires at `:15` every hour from 18:00 to 23:00 UTC, so a missed slot 
 the hour. An empty run commits nothing, and the job summary says whether today's result is stored
 or still outstanding.
 
+### The archive either is current or says it isn't
+
+The target rolls forward on its own, but only as far as the data reaches: a result that never arrives
+leaves every figure below it sound arithmetic applied to an older drum. The Tonight page therefore
+opens with an archive check — `Archive current — newest stored result: 25 Nov 2026 (Midweek)` — or a
+warning naming exactly which evenings are missing, and pointing at the hourly refresh window.
+
+This exists because the site was briefly a day behind while confidently presenting itself as current.
+A tool whose whole value is that its numbers can be checked cannot be quietly stale.
+
+### Training on every draw (`src/fit.ts`)
+
+The blend — Bayes / Poisson / Markov — ships with fixed weights. `fitWeights()` searches that weight
+space and picks whichever combination put the most drawn balls inside its top 15 over the **earlier
+part of the archive**, then scores that choice on draws it never saw. Two numbers come out, and only
+the second one counts:
+
+| | Top-15 hits per draw |
+|---|---|
+| Fitted weights, in sample | 0.875 |
+| Defaults, in sample | 0.688 |
+| **Fitted weights, out of sample** | **0.720** |
+| **Defaults, out of sample** | **0.720** |
+| Chance level | 0.833 |
+
+On the 62-draw archive the search finds something in training and it transfers to nothing: identical
+out-of-sample, p ≈ 1.00. That is the correct result for a fair drum, and it is why the card reports
+"no out-of-sample gain" instead of quietly applying the fitted weights. The button is on the
+backtester page — fitting is offered, never assumed.
+
+The objective is a ranking score, not a softmax log-loss, because the app buys tickets from a ranked
+list: a probability model that was never calibrated would let the search win by shrinking its own
+spread.
+
+### Staking by shortcode (phone), and the one option that changes the maths
+
+The phone channel differs from the kiosk in two ways that matter: you see the price **before** you
+confirm, and your receipt is an **SMS** rather than a paper ticket. So: read the game, bet type,
+numbers and stake line before accepting; read the multiplier the screen shows (published Direct 2 is
+240× the debit — 320× the 75% "stake"); and keep the confirmation SMS, which carries the transaction
+reference needed to claim.
+
+**"Double Chance"** — the option that also covers the five machine numbers — is the only toggle in
+this game that changes the arithmetic. It does not double the chance; covering ten balls multiplies
+it by C(10,k)/C(5,k):
+
+| Ticket | Normal | Ten balls | Times likelier | Worth buying only below |
+|---|---|---|---|---|
+| Direct 2 | 1 in 401 | 1 in 89 | ×4.5 | 4.5× the stake |
+| Direct 3 | 1 in 11,748 | 1 in 979 | ×12 | 12× the stake |
+| Direct 4 | 1 in 511,038 | 1 in 12,168 | ×42 | 42× the stake |
+| Direct 5 | 1 in 43,949,268 | 1 in 174,402 | ×252 | 252× the stake |
+
+Read the last column as a warning. If Direct 2 really became 4.5× likelier while still paying 240×,
+the ticket would return 2.70 per 1.00 — which no operator offers. So the multiplier must drop when
+the option is on, or the extra cost is per ball. `doubleChance()` computes the break-even multiple, and
+the page says to check the multiplier on screen before confirming.
+
 ### A 75% chance, priced exactly
 
 "Give me numbers with a 75% chance" has an answer, and it is a shopping list rather than a prediction.

@@ -157,6 +157,10 @@ describe('dashboard (static mode)', () => {
     await click('[data-action="tab"][data-tab="backtest"]');
     await waitFor(() => Boolean(state()?.backtest), 'backtest to finish', 40_000);
     await waitFor(() => appText().includes('Edge audit'), 'backtest view to render');
+    // Training lives here, and it must offer to fit rather than claim a result.
+    await waitFor(() => appText().includes('Train the weights on the archive'), 'fit card');
+    expect(appText()).toContain('Fit the weights now');
+    expect(appText()).toContain('not fitted yet');
     const text = appText();
     expect(text).toContain('1-Number hit');
     expect(text).toContain('2-Sure (both hit)');
@@ -437,6 +441,13 @@ describe('dashboard (static mode)', () => {
     // 0.0010 must not render as "0.00" — the worst ticket looked free.
     expect(appText()).not.toContain('returns 0.00 per 1.00');
     expect(appText()).toContain('0.0010');
+
+    // Phone staking has its own checks — and its own trap, Double Chance.
+    expect(appText()).toContain('Staking on the phone (shortcode)');
+    expect(appText()).toContain('Keep the confirmation SMS');
+    expect(appText()).toContain('Double Chance');
+    expect(appText()).toMatch(/4\.5×/);
+    expect(appText()).toContain('Check the multiplier on screen before you confirm');
 
     // The request in the user's own terms: numbers with a 75% chance.
     expect(appText()).toContain('Building a 75% chance');

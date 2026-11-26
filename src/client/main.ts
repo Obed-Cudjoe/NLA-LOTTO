@@ -30,6 +30,7 @@ import {
   scorePickBook,
 } from '../pickBook';
 import { setPriceOverrides } from '../bets';
+import { fitWeights } from '../fit';
 import { parsePayload } from '../scraper';
 import * as store from './store';
 import { destroyAllCharts, renderBacktestCharts } from './charts';
@@ -66,6 +67,7 @@ const state: AppState = {
   pickBook: store.loadPickBook(),
   pickReport: emptyReport(),
   backtest: null,
+  fit: null,
   backtestOpts: { minTrain: ui.minTrain ?? 25, simulations: ui.simulations ?? 300 },
   settings: store.loadSettings(),
   busy: null,
@@ -932,6 +934,25 @@ async function handleAction(action: string, el: HTMLElement): Promise<void> {
       store.saveUi({ lab: state.lab });
       render();
       break;
+    case 'fit-weights': {
+      state.busy = 'fit';
+      render();
+      // Let the spinner paint before a half-second of grid search.
+      await new Promise((resolve) => window.setTimeout(resolve, 30));
+      const result = fitWeights(state.draws, state.config, { game: state.game === 'all' ? null : state.game });
+      state.busy = null;
+      state.fit = result;
+      toast(
+        result
+          ? result.beatsDefaults
+            ? 'Fitted weights beat the defaults out of sample — check it in the backtester.'
+            : 'Fitted weights do not beat the defaults out of sample. That is the expected result.'
+          : 'Not enough draws in this filter to fit anything.',
+        result?.beatsDefaults ? 'ok' : 'info'
+      );
+      render();
+      break;
+    }
     case 'set-price': {
       const id = el.getAttribute('data-bet') ?? '';
       const raw = (el as HTMLInputElement).value.trim();
@@ -1152,7 +1173,7 @@ async function boot(): Promise<void> {
   }
   try {
     state.mode = await detectMode();
-    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.14.0' };
+    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.16.1' };
     if (!state.settings.ghRepo.trim()) {
       const guess = repoGuess();
       if (guess) {

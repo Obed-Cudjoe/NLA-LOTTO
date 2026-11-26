@@ -11,6 +11,7 @@ import {
   setPriceOverrides,
   guarantee,
   planForChance,
+  doubleChance,
 } from '../src/bets';
 
 describe('NLA bet types and their exact value', () => {
@@ -189,5 +190,35 @@ describe('planForChance — buying a named chance', () => {
     const before = planForChance(0.75).find((p) => p.id === 'direct2')!;
     expect(before.expectedBack).toBeCloseTo(before.lines * (200 / 400.5), 6);
     expect(before.net).toBeLessThan(-200);
+  });
+});
+
+describe('Double Chance — ten balls instead of five', () => {
+  afterEach(() => setPriceOverrides({}));
+
+  it('multiplies a pair by 4.5, not by 2', () => {
+    const d2 = doubleChance('direct2')[0];
+    expect(d2.chanceMultiple).toBeCloseTo(4.5, 6);
+    expect(d2.coveredChance).toBeCloseTo(45 / 4005, 10);
+  });
+
+  it('multiplies a trio by 12 and a five-line by 252', () => {
+    expect(doubleChance('direct3')[0].chanceMultiple).toBeCloseTo(12, 6);
+    expect(doubleChance('direct5')[0].chanceMultiple).toBeCloseTo(252, 6);
+  });
+
+  it('leaves Direct 1 alone — it pays on the first ball', () => {
+    const d1 = doubleChance('direct1')[0];
+    expect(d1.chanceMultiple).toBe(1);
+    expect(d1.note).toContain('first ball only');
+  });
+
+  it('flags a break-even cost so the player can check the screen', () => {
+    const d2 = doubleChance('direct2')[0];
+    // 240 × (45/4005) = 2.70 expected, against 0.5993 normally.
+    expect(d2.evCovered).toBeCloseTo(2.6966, 3);
+    expect(d2.breakEvenCostFactor).toBeCloseTo(4.5, 6);
+    expect(d2.evCovered).toBeGreaterThan(1);
+    expect(d2.note).toContain('reduce the payout');
   });
 });

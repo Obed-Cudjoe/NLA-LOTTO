@@ -283,3 +283,55 @@ export function planForChance(confidence: number): TargetPlan[] {
     })
     .sort((a, b) => a.lines - b.lines);
 }
+
+/**
+ * "Double Chance" — the shortcode option that also covers the five machine
+ * numbers, so ten balls instead of five decide the ticket.
+ *
+ * The arithmetic is not "twice the chance": for a k-number ticket the chance
+ * becomes C(10,k)/C(90,k), which is 4.5× for a pair and 8.6× for a trio. That is
+ * why the option normally comes with a lower multiplier — and why the break-even
+ * cost factor below is the only number that decides whether it is worth buying.
+ */
+export function chanceCovered(betId: BetId, covered = 10): number {
+  const picks = Number(betId.replace('direct', ''));
+  // Direct 1 pays on the first ball only, so extra covered balls cannot help it.
+  if (picks === 1) return 1 / BALLS;
+  return nCr(Math.min(covered, BALLS), picks) / nCr(BALLS, picks);
+}
+
+export interface DoubleChanceView {
+  id: BetId;
+  baselineChance: number;
+  coveredChance: number;
+  /** How many times likelier the covered ticket is. */
+  chanceMultiple: number;
+  /** Expected return per 1.00 at the published multiplier with 10 covered balls. */
+  evCovered: number;
+  /** Buying it is better value than the plain ticket only below this cost multiple. */
+  breakEvenCostFactor: number;
+  note: string;
+}
+
+export function doubleChance(betId?: BetId): DoubleChanceView[] {
+  return betTypes()
+    .filter((bet) => (betId ? bet.id === betId : true))
+    .map((bet) => {
+      const coveredChance = chanceCovered(bet.id);
+      const evCovered = coveredChance * bet.multiplier;
+      return {
+        id: bet.id,
+        baselineChance: bet.probability,
+        coveredChance,
+        chanceMultiple: coveredChance / bet.probability,
+        evCovered,
+        breakEvenCostFactor: evCovered / bet.ev,
+        note:
+          bet.picks === 1
+            ? 'Direct 1 pays on the first ball only — machine numbers cannot help it.'
+            : evCovered >= 1
+              ? 'At the published multiplier this would return more than it costs, so the operator must reduce the payout when the option is on. Check the multiplier on screen.'
+              : 'Worth buying only if the option costs less than the break-even multiple.',
+      };
+    });
+}

@@ -9,6 +9,7 @@
  */
 import { beforeAll, describe, expect, it } from 'vitest';
 import seed from '../data/draws.json';
+import { renderBacktest } from '../src/client/views';
 
 const draws = seed as Array<{ draw_date: string; game_name: string; winning: number[]; machine: number[] }>;
 
@@ -606,5 +607,15 @@ describe('dashboard (static mode)', () => {
     expect(appText()).toContain('Locking now would be hindsight');
     await click('[data-action="lock-pick"]');
     expect(state().pickBook).toHaveLength(0);
+  });
+
+  it('shows the pre-registered week before any backtest has been run', () => {
+    const app = document.getElementById('app') as HTMLElement;
+    // No backtest in state: the plan panel must still be readable.
+    const bare = { ...state(), backtest: null, fit: null };
+    app.innerHTML = renderBacktest(bare);
+    expect(app.textContent).toContain('The next 7 draws, pre-registered');
+    expect(app.textContent).toContain('The training ledger');
+    expect(app.textContent).toContain('Chance alone gives about');
   });
 });

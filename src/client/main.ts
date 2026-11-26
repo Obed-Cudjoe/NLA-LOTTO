@@ -1183,7 +1183,7 @@ async function boot(): Promise<void> {
   }
   try {
     state.mode = await detectMode();
-    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.17.0' };
+    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.17.1' };
     if (!state.settings.ghRepo.trim()) {
       const guess = repoGuess();
       if (guess) {
@@ -1194,6 +1194,9 @@ async function boot(): Promise<void> {
     await loadDraws();
     recompute();
     applyRoute(true);
+    // Landing straight on the ledger address should still fill it in: the
+    // training record is the point of the page, not a reward for pressing a button.
+    if (state.page === 'tools' && state.view === 'backtest' && !state.backtest) void runBacktest();
     startDrawPolling();
     if (!state.draws.length) {
       toast('No draws loaded. Import results in the Ledger tab, or check data/draws.json.', 'warn');

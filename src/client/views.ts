@@ -1409,6 +1409,8 @@ export function renderBacktest(state: AppState): string {
   if (!bt) {
     return `
     <div class="mx-auto max-w-7xl space-y-4 px-4 py-4">
+      ${fitCard}
+      ${ledgerCard}
       ${controls}
       ${card(`<div class="py-10 text-center">
         <p class="text-sm text-slate-300">No backtest yet.</p>

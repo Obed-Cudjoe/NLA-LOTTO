@@ -150,6 +150,16 @@ refresh now fires at `:15` every hour from 18:00 to 23:00 UTC, so a missed slot 
 the hour. An empty run commits nothing, and the job summary says whether today's result is stored
 or still outstanding.
 
+### The archive either is current or says it isn't
+
+The target rolls forward on its own, but only as far as the data reaches: a result that never arrives
+leaves every figure below it sound arithmetic applied to an older drum. The Tonight page therefore
+opens with an archive check — `Archive current — newest stored result: 25 Nov 2026 (Midweek)` — or a
+warning naming exactly which evenings are missing, and pointing at the hourly refresh window.
+
+This exists because the site was briefly a day behind while confidently presenting itself as current.
+A tool whose whole value is that its numbers can be checked cannot be quietly stale.
+
 ### Training on every draw (`src/fit.ts`)
 
 The blend — Bayes / Poisson / Markov — ships with fixed weights. `fitWeights()` searches that weight

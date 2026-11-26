@@ -7,7 +7,7 @@
  * or a caveat — never a formula.
  */
 import { GAME_WEEKDAY, GAMES } from '../types';
-import { formatDrawDate, nextOpenDraw } from '../mathEngine';
+import { addDays, drawWindowClosed, formatDrawDate, gameForDate, nextOpenDraw } from '../mathEngine';
 import { NLA_MULTIPLIERS, betTypes, coverage, doubleChance, guarantee, linesForConfidence, planForChance } from '../bets';
 import { isDrawPast, scorePickBook } from '../pickBook';
 import { collisionsDuringWalk, collisionsToMix, effectiveMixSeconds } from '../mixing';
@@ -555,6 +555,49 @@ function recordCard(state: AppState): string {
   `);
 }
 
+/**
+ * Is the archive actually up to date?
+ *
+ * The target rolls forward on its own, but it can only roll as far as the data
+ * goes: if a result never arrives, every figure below is still sound arithmetic
+ * applied to an older drum. This card says so instead of letting a stale archive
+ * impersonate a current one.
+ */
+function archiveHealthCard(state: AppState): string {
+  const draws = state.draws;
+  if (!draws.length) {
+    return card(`<p class="text-[12px] text-slate-300">No archive loaded yet.</p>`);
+  }
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const newest = draws[draws.length - 1];
+  const closed = drawWindowClosed();
+  // Every scheduled evening draw between the newest stored result and today.
+  const missing: string[] = [];
+  for (let i = 1; i <= 14; i++) {
+    const date = addDays(newest.draw_date, i);
+    if (date > todayIso) break;
+    if (!gameForDate(date)) continue;
+    if (date === todayIso && !closed) continue; // tonight has not happened yet
+    missing.push(date);
+  }
+  if (!missing.length) {
+    return card(
+      `<p class="text-[11px] leading-relaxed text-slate-400"><b class="text-emerald-300">Archive current</b> — newest stored result: ${esc(formatDrawDate(newest.draw_date))} (${esc(newest.game_name)}). Every figure below is computed from a complete record.</p>`
+    );
+  }
+  return card(`
+    <p class="text-[12px] font-medium text-amber-200">
+      ⚠ The archive is missing ${missing.length} draw${missing.length === 1 ? '' : 's'} —
+      newest stored result is ${esc(formatDrawDate(newest.draw_date))} (${esc(newest.game_name)}).
+    </p>
+    <p class="mt-1 text-[11px] leading-relaxed text-slate-300">
+      The numbers below are still exact arithmetic — they are just applied to a shorter record, and the
+      target can only roll as far as the data goes. Missing: ${esc(missing.map((d) => formatDrawDate(d)).join(', '))}.
+      The refresh runs hourly from 18:00 to 23:00 GMT; a result that has not landed by then is a source
+      problem, not a scheduling one.
+    </p>`);
+}
+
 export function renderTonight(state: AppState): string {
   return `
   <div class="mx-auto max-w-6xl px-4 pt-8">
@@ -577,6 +620,7 @@ export function renderTonight(state: AppState): string {
     </p>
   </div>
   <div class="mx-auto mt-4 max-w-6xl space-y-3 px-4">
+    ${archiveHealthCard(state)}
     ${lineCard(state)}
     ${recordCard(state)}
   </div>

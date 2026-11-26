@@ -160,6 +160,25 @@ warning naming exactly which evenings are missing, and pointing at the hourly re
 This exists because the site was briefly a day behind while confidently presenting itself as current.
 A tool whose whole value is that its numbers can be checked cannot be quietly stale.
 
+### The training ledger, and a verdict written before the draws
+
+Every draw now becomes a scored row: the line the model published before it, what landed, how many
+of the five hit, whether the pair won, how many of the trio. `buildLedger()` derives it from the
+walk-forward backtest, so it grows by one row each evening with nobody pressing anything, and
+`ledgerToCsv()` lets it leave the browser to be checked elsewhere.
+
+The horizon plan is the part that keeps the training honest about time. Over the **next 7 draws**:
+
+| | |
+|---|---|
+| Hits expected from chance | **1.9** |
+| Hits needed for p < 0.05 | **5** (p = 0.039) |
+| What that would mean | a hint, not a finding |
+
+Written before the draws, computed from the exact convolution of the per-draw hypergeometric
+distribution. Seven draws cannot make a model perfect; they can only lengthen the record and make the
+next verdict better informed.
+
 ### Training on every draw (`src/fit.ts`)
 
 The blend — Bayes / Poisson / Markov — ships with fixed weights. `fitWeights()` searches that weight

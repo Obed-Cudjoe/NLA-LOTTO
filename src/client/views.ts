@@ -1276,6 +1276,45 @@ export function renderBacktest(state: AppState): string {
   const bt = state.backtest;
   const opts = state.backtestOpts;
 
+  const fit = state.fit;
+  const fitCard = card(`
+    <div class="flex flex-wrap items-start justify-between gap-2">
+      <div>
+        <h2 class="text-sm font-semibold text-slate-100">Train the weights on the archive</h2>
+        <p class="text-[11px] text-slate-400">
+          The blend is Bayes / Poisson / Markov at fixed weights. This searches the weight space and
+          picks whichever put the most drawn balls inside its top 15 over the earlier part of the
+          archive — then scores that choice on draws it never saw.
+        </p>
+      </div>
+      ${badge(fit ? (fit.beatsDefaults ? 'beat the defaults' : 'no out-of-sample gain') : 'not fitted yet', fit?.beatsDefaults ? 'ok' : 'muted')}
+    </div>
+
+    ${
+      fit
+        ? `<div class="mt-3 grid gap-2 text-[11px] sm:grid-cols-4">
+            ${stat('Fitted weights', `${Math.round(fit.fitted.bayes * 100)}/${Math.round(fit.fitted.poisson * 100)}/${Math.round(fit.fitted.markov * 100)}`, 'Bayes / Poisson / Markov')}
+            ${stat('In-sample', fit.trainFitted.toFixed(2), `defaults ${fit.trainDefaults.toFixed(2)}`)}
+            ${stat('Out of sample', fit.testFitted.toFixed(2), `defaults ${fit.testDefaults.toFixed(2)}`)}
+            ${stat('Chance level', fit.chanceLevel.toFixed(2), `top ${fit.k} of 90`)}
+          </div>
+          <p class="mt-2 rounded-lg border ${fit.beatsDefaults ? 'border-emerald-400/20 bg-emerald-400/5 text-emerald-100/85' : 'border-white/10 bg-black/20 text-slate-300'} p-2.5 text-[11px] leading-relaxed">
+            ${esc(fit.verdict)}
+          </p>
+          <p class="mt-1 text-[10px] leading-snug text-slate-500">
+            ${fit.trainDraws} draws trained the weights, ${fit.testDraws} unseen draws scored them,
+            ${fit.candidates} weight combinations tried. A gain here is a ranking gain, not a promise:
+            the backtester below is what converts it into money.
+          </p>`
+        : `<button type="button" data-action="fit-weights" class="btn btn-primary mt-3" ${state.busy ? 'disabled' : ''}>
+            ${state.busy === 'fit' ? 'Fitting…' : 'Fit the weights now'}
+          </button>
+          <p class="mt-1 text-[10px] leading-snug text-slate-500">
+            Takes about half a second. Nothing is changed in your settings — the fitted weights are
+            reported, not applied, so you can see whether they would have helped before trusting them.
+          </p>`
+    }`);
+
   const controls = card(`
     <div class="grid gap-3 sm:grid-cols-4">
       <label class="field">
@@ -1321,6 +1360,7 @@ export function renderBacktest(state: AppState): string {
 
   return `
   <div class="mx-auto max-w-7xl space-y-4 px-4 py-4">
+    ${fitCard}
     ${controls}
 
     <div class="grid gap-3 sm:grid-cols-3">

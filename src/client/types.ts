@@ -78,6 +78,8 @@ export interface AppState {
   /** How those lines have actually done, versus chance. */
   pickReport: PickBookReport;
   backtest: BacktestResult | null;
+  /** Result of fitting the pillar weights on the archive, when asked for. */
+  fit: import('../fit').WeightFitResult | null;
   backtestOpts: { minTrain: number; simulations: number };
   settings: Settings;
   busy: string | null;

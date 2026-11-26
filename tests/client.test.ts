@@ -157,6 +157,10 @@ describe('dashboard (static mode)', () => {
     await click('[data-action="tab"][data-tab="backtest"]');
     await waitFor(() => Boolean(state()?.backtest), 'backtest to finish', 40_000);
     await waitFor(() => appText().includes('Edge audit'), 'backtest view to render');
+    // Training lives here, and it must offer to fit rather than claim a result.
+    await waitFor(() => appText().includes('Train the weights on the archive'), 'fit card');
+    expect(appText()).toContain('Fit the weights now');
+    expect(appText()).toContain('not fitted yet');
     const text = appText();
     expect(text).toContain('1-Number hit');
     expect(text).toContain('2-Sure (both hit)');

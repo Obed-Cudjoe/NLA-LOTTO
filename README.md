@@ -150,6 +150,30 @@ refresh now fires at `:15` every hour from 18:00 to 23:00 UTC, so a missed slot 
 the hour. An empty run commits nothing, and the job summary says whether today's result is stored
 or still outstanding.
 
+### Training on every draw (`src/fit.ts`)
+
+The blend — Bayes / Poisson / Markov — ships with fixed weights. `fitWeights()` searches that weight
+space and picks whichever combination put the most drawn balls inside its top 15 over the **earlier
+part of the archive**, then scores that choice on draws it never saw. Two numbers come out, and only
+the second one counts:
+
+| | Top-15 hits per draw |
+|---|---|
+| Fitted weights, in sample | 0.875 |
+| Defaults, in sample | 0.688 |
+| **Fitted weights, out of sample** | **0.720** |
+| **Defaults, out of sample** | **0.720** |
+| Chance level | 0.833 |
+
+On the 62-draw archive the search finds something in training and it transfers to nothing: identical
+out-of-sample, p ≈ 1.00. That is the correct result for a fair drum, and it is why the card reports
+"no out-of-sample gain" instead of quietly applying the fitted weights. The button is on the
+backtester page — fitting is offered, never assumed.
+
+The objective is a ranking score, not a softmax log-loss, because the app buys tickets from a ranked
+list: a probability model that was never calibrated would let the search win by shrinking its own
+spread.
+
 ### Staking by shortcode (phone), and the one option that changes the maths
 
 The phone channel differs from the kiosk in two ways that matter: you see the price **before** you

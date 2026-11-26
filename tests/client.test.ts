@@ -159,6 +159,11 @@ describe('dashboard (static mode)', () => {
     await waitFor(() => appText().includes('Edge audit'), 'backtest view to render');
     // Training lives here, and it must offer to fit rather than claim a result.
     await waitFor(() => appText().includes('Train the weights on the archive'), 'fit card');
+    // Every draw is a scored row, and the next week is pre-registered.
+    await waitFor(() => appText().includes('The training ledger'), 'ledger card');
+    expect(appText()).toContain('The next 7 draws, pre-registered');
+    expect(appText()).toMatch(/5 or more/);
+    expect(document.querySelector('[data-action="export-ledger"]')).toBeTruthy();
     expect(appText()).toContain('Fit the weights now');
     expect(appText()).toContain('not fitted yet');
     const text = appText();

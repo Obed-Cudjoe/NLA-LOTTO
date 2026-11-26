@@ -31,6 +31,7 @@ import {
 } from '../pickBook';
 import { setPriceOverrides } from '../bets';
 import { fitWeights } from '../fit';
+import { buildLedger, ledgerToCsv } from '../trainingLog';
 import { parsePayload } from '../scraper';
 import * as store from './store';
 import { destroyAllCharts, renderBacktestCharts } from './charts';
@@ -882,6 +883,15 @@ async function handleAction(action: string, el: HTMLElement): Promise<void> {
       );
       break;
     }
+    case 'export-ledger': {
+      if (!state.backtest?.runs.length) {
+        toast('Run the backtest first — the ledger is built from it.', 'warn');
+        break;
+      }
+      const summary = buildLedger(state.backtest.runs);
+      store.downloadFile('nla-training-ledger.csv', ledgerToCsv(summary), 'text/csv');
+      break;
+    }
     case 'export-picks': {
       const { rows } = scorePickBook(state.pickBook, state.draws);
       if (!rows.length) {
@@ -1173,7 +1183,7 @@ async function boot(): Promise<void> {
   }
   try {
     state.mode = await detectMode();
-    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.16.1' };
+    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.17.0' };
     if (!state.settings.ghRepo.trim()) {
       const guess = repoGuess();
       if (guess) {

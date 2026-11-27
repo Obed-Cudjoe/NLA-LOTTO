@@ -550,6 +550,9 @@ describe('dashboard (static mode)', () => {
 
     // The journal form is prefilled, so logging is one tap.
     await waitFor(() => appText().includes('Timing journal'), 'journal card');
+    // The measurable half of the timing sits right beside the logged half.
+    expect(appText()).toContain('When the result reached us');
+    expect(appText()).toContain('not the drum, not the walk');
     const jWalk = document.getElementById('j-walk') as HTMLInputElement;
     const jShake = document.getElementById('j-shake') as HTMLInputElement;
     expect(Number(jWalk.value)).toBeCloseTo(walk, 1);

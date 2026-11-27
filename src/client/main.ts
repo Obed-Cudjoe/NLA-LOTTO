@@ -20,6 +20,7 @@ import {
 } from '../mathEngine';
 import { DEFAULT_MIXING } from '../mixing';
 import { analyseTimingJournal, journalToCsv, type TimingEntry } from '../timingJournal';
+import { latencyToCsv, mergeSightings } from '../resultLatency';
 import { analyseDrawOrder } from '../drawOrder';
 import {
   emptyReport,
@@ -62,6 +63,7 @@ const state: AppState = {
   orderAll: null,
   lab: { ...DEFAULT_MIXING, ...(ui.lab ?? {}) },
   journal: store.loadJournal(),
+  latency: store.loadLatency(),
   journalReport: null,
   stopwatch: { walkStart: null, walkSeconds: null, shakeStart: null, shakeSeconds: null },
   prices: store.loadPrices(),
@@ -285,6 +287,19 @@ function drawStamp(): string {
   return `${state.draws.length}|${last?.draw_date ?? ''}|${last?.game_name ?? ''}`;
 }
 
+/**
+ * The one timing fact this app can measure by itself: the moment a result first
+ * appeared here. Never rewritten — the first sighting is the observation.
+ */
+function recordSightings(): void {
+  if (!state.draws.length) return;
+  const now = new Date();
+  const next = mergeSightings(state.latency ?? [], state.draws, now.toISOString());
+  if (next.length === (state.latency ?? []).length) return;
+  state.latency = next;
+  store.saveLatency(next);
+}
+
 async function pollForNewDraws(): Promise<void> {
   if (document.hidden || state.busy) return;
   const before = drawStamp();
@@ -294,6 +309,7 @@ async function pollForNewDraws(): Promise<void> {
     return; // offline or CDN hiccup: try again on the next tick
   }
   if (drawStamp() === before) return;
+  recordSightings();
   if (!ui.game) state.game = nextOpenDraw(state.draws).game;
   recompute();
   state.lastSync = new Date().toLocaleTimeString();
@@ -309,6 +325,7 @@ function startDrawPolling(): void {
 
 async function reloadData(): Promise<void> {
   await loadDraws();
+  recordSightings();
   recompute();
   state.lastSync = new Date().toLocaleTimeString();
   render();
@@ -444,6 +461,7 @@ async function watchForNewDraws(before: string, tries = 8): Promise<void> {
     }
     const newest = state.draws.at(-1)?.draw_date ?? '';
     if (newest !== before) {
+      recordSightings();
       recompute();
       render();
       toast(`New draw picked up: ${newest}. Scores recomputed.`, 'ok');
@@ -996,7 +1014,24 @@ async function handleAction(action: string, el: HTMLElement): Promise<void> {
         toast('Walk time: seconds from being called to the press (0–600).', 'warn');
         return;
       }
-      if (!Number.isInteger(first) || first < 1 || first > 90) {
+      // The archive already knows the first ball. Use it when the field is blank,
+      // and say so loudly when a typed number disagrees — that is a misread, and
+      // a misread first ball would quietly poison the whole timing test.
+      const stored = state.draws.find((d) => d.draw_date === date);
+      let firstBall = first;
+      if (stored) {
+        if (!Number.isInteger(first)) {
+          firstBall = stored.winning[0];
+          toast(`First ball taken from the archive: ${firstBall} (${stored.game_name}).`, 'ok');
+        } else if (first !== stored.winning[0]) {
+          firstBall = stored.winning[0];
+          toast(
+            `The archive says ${stored.winning[0]} was drawn first, not ${first}. Logged the archive value — check the replay if you disagree.`,
+            'warn'
+          );
+        }
+      }
+      if (!Number.isInteger(firstBall) || firstBall < 1 || firstBall > 90) {
         toast('First ball must be a whole number 1–90.', 'warn');
         return;
       }
@@ -1004,7 +1039,7 @@ async function handleAction(action: string, el: HTMLElement): Promise<void> {
         draw_date: date,
         walkSeconds: walk,
         shakeSeconds: Number.isFinite(shake) ? shake : 0,
-        firstBall: first,
+        firstBall,
         game: state.game === 'all' ? undefined : state.game,
       };
       const next = [...state.journal.filter((e) => e.draw_date !== date), entry].sort((a, b) =>
@@ -1183,7 +1218,7 @@ async function boot(): Promise<void> {
   }
   try {
     state.mode = await detectMode();
-    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.18.1' };
+    if (state.mode === 'static') state.health = { ok: true, mode: 'static', version: '1.19.0' };
     if (!state.settings.ghRepo.trim()) {
       const guess = repoGuess();
       if (guess) {
@@ -1192,6 +1227,7 @@ async function boot(): Promise<void> {
       }
     }
     await loadDraws();
+    recordSightings();
     recompute();
     applyRoute(true);
     // Landing straight on the ledger address should still fill it in: the

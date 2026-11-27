@@ -178,6 +178,26 @@ Two is a 1-in-44 evening that pays nothing — and it happens, which is why the 
 than explaining it away. The backtester reports how many such draws the archive holds against the
 0.89 chance expects, with a binomial p-value, and names the dates.
 
+### Can the drum's timing be read back out of the numbers? (`src/drumOrder.ts`)
+
+No, and the module says so with a test rather than an opinion. A result records which five balls left,
+never when or for how long; many press timings produce the same five numbers, so no arithmetic
+recovers a duration. Only a stopwatch on the broadcast can, which is what the journal is for.
+
+What the record *does* hold is release order, so that question gets asked properly — is the first ball
+spread evenly across nine buckets of ten?
+
+| Test | Result |
+|---|---|
+| First ball, 64 draws | χ² = 16.44, df 8, **p = 0.037** |
+| First half (32 draws) | p = 0.44 |
+| Second half (32 draws) | p = 0.19 |
+| All 320 balls by decade | p = 0.41 |
+
+One test out of many nudging past 0.05 is what noise looks like; it does not repeat on a split. And
+even if it were real, it would say which decade tends to leave first — never which five numbers.
+The card shows the ladder of release positions and says this in as many words.
+
 ### When the result reached us (`src/resultLatency.ts`)
 
 Two timings matter here and only one can be measured without you. The drum's mixing time and the

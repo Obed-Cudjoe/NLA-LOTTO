@@ -41,6 +41,7 @@ import { isDrawPast } from '../pickBook';
 import { buildLedger, ledgerToCsv, nearMissRecord, planHorizon } from '../trainingLog';
 import { describeGap, summariseLatency } from '../resultLatency';
 import { TIMING_IS_NOT_IN_THE_NUMBERS, firstBallTest, positionProfile } from '../drumOrder';
+import { NO_INVERSE, powerToDetect, whatTheArchiveCanSee } from '../identifiability';
 import {
   bestDirect1Ev,
   breakEvenShakeSeconds,
@@ -787,6 +788,58 @@ export function renderDeduction(state: AppState): string {
 
 
 
+
+/**
+ * The reverse-engineering question, answered with a power curve rather than a
+ * refusal: the input was never recorded, so nothing can be inverted — and here
+ * is how large a bias the archive could see anyway.
+ */
+function identifiabilityCard(state: AppState): string {
+  const draws = state.draws.length;
+  const rows = [64, 128, 256, 512].map((n) => ({
+    n,
+    tilt20: powerToDetect(0.2, n, 200),
+    tilt40: powerToDetect(0.4, n, 200),
+  }));
+  return card(`
+    <div class="flex flex-wrap items-start justify-between gap-2">
+      <div>
+        <h2 class="text-sm font-semibold text-slate-100">Why the timing cannot be reverse-engineered</h2>
+        <p class="text-[11px] leading-relaxed text-slate-400">${esc(NO_INVERSE)}</p>
+      </div>
+      ${badge('no inverse exists', 'muted')}
+    </div>
+
+    <p class="mt-3 text-[11px] leading-relaxed text-slate-300">
+      ${esc(whatTheArchiveCanSee(draws))}
+    </p>
+
+    <div class="mt-3 overflow-x-auto rounded-lg border border-white/10">
+      <table class="w-full min-w-[420px] text-left text-[11px]">
+        <thead class="bg-[#0b1120] text-[10px] uppercase tracking-wide text-slate-500">
+          <tr><th class="px-2 py-1">Draws</th><th class="px-2 py-1">Catches a 20% tilt</th><th class="px-2 py-1">Catches a 40% tilt</th></tr>
+        </thead>
+        <tbody>
+          ${rows
+            .map(
+              (r) => `<tr class="border-t border-white/5">
+                <td class="px-2 py-1 ${r.n === draws ? 'text-amber-300' : 'text-slate-300'}">${r.n}${r.n === draws ? ' (now)' : ''}</td>
+                <td class="px-2 py-1 text-slate-400">${(r.tilt20 * 100).toFixed(0)}% of the time</td>
+                <td class="px-2 py-1 text-slate-400">${(r.tilt40 * 100).toFixed(0)}% of the time</td>
+              </tr>`
+            )
+            .join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <p class="mt-2 text-[10px] leading-snug text-slate-500">
+      A test that finds nothing at 64 draws is not evidence of a fair drum — it is a test with almost no
+      power. That distinction matters here: it is why "we could not detect it" must never be retold as
+      "we checked and it is fine".
+    </p>`);
+}
+
 /**
  * The tempting theory, tested with the only part of the record it can touch.
  *
@@ -1237,6 +1290,7 @@ export function renderLab(state: AppState): string {
       </p>
     `)}
 
+    ${identifiabilityCard(state)}
     ${orderCard(state)}
     ${stopwatchCard(state)}
     ${latencyCard(state)}

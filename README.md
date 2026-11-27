@@ -178,6 +178,47 @@ Two is a 1-in-44 evening that pays nothing — and it happens, which is why the 
 than explaining it away. The backtester reports how many such draws the archive holds against the
 0.89 chance expects, with a binomial p-value, and names the dates.
 
+### Why the timing cannot be reverse-engineered (`src/identifiability.ts`)
+
+Reverse engineering needs an observed input and an invertible mapping. The input — walk time, shake
+time — is never recorded, and thousands of timings end in the same five numbers. Under any fair-drum
+model the timing and the result are independent, so the result carries **zero bits** about the timing.
+
+The honest substitute is a power calculation. Monte-Carlo power of the first-ball test against a
+tilted drum (nine buckets, df 8, α = 0.05):
+
+| Draws | Catches a 20% tilt | Catches a 40% tilt |
+|---|---|---|
+| 64 (current) | 5% | 10% |
+| 128 | 7% | 16% |
+| 256 | 12% | 34% |
+| 512 | 19% | 59% |
+
+80% power needs roughly **814 draws** (≈2.6 years at six nights a week) for a 40% tilt, and **3,161**
+(≈10 years) for 20%. A test that finds nothing at 64 draws is not evidence of a fair drum — it is a
+test with almost no power, and the card says so, because "we could not detect it" must never be
+retold as "we checked and it is fine".
+
+### Can the drum's timing be read back out of the numbers? (`src/drumOrder.ts`)
+
+No, and the module says so with a test rather than an opinion. A result records which five balls left,
+never when or for how long; many press timings produce the same five numbers, so no arithmetic
+recovers a duration. Only a stopwatch on the broadcast can, which is what the journal is for.
+
+What the record *does* hold is release order, so that question gets asked properly — is the first ball
+spread evenly across nine buckets of ten?
+
+| Test | Result |
+|---|---|
+| First ball, 64 draws | χ² = 16.44, df 8, **p = 0.037** |
+| First half (32 draws) | p = 0.44 |
+| Second half (32 draws) | p = 0.19 |
+| All 320 balls by decade | p = 0.41 |
+
+One test out of many nudging past 0.05 is what noise looks like; it does not repeat on a split. And
+even if it were real, it would say which decade tends to leave first — never which five numbers.
+The card shows the ladder of release positions and says this in as many words.
+
 ### When the result reached us (`src/resultLatency.ts`)
 
 Two timings matter here and only one can be measured without you. The drum's mixing time and the

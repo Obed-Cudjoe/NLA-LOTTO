@@ -40,6 +40,8 @@ import { betTypes, coverage, linesForConfidence } from '../bets';
 import { isDrawPast } from '../pickBook';
 import { buildLedger, ledgerToCsv, nearMissRecord, planHorizon } from '../trainingLog';
 import { describeGap, summariseLatency } from '../resultLatency';
+import { TIMING_IS_NOT_IN_THE_NUMBERS, firstBallTest, positionProfile } from '../drumOrder';
+import { NO_INVERSE, powerToDetect, whatTheArchiveCanSee } from '../identifiability';
 import {
   bestDirect1Ev,
   breakEvenShakeSeconds,
@@ -785,6 +787,131 @@ export function renderDeduction(state: AppState): string {
  * ========================================================================== */
 
 
+
+
+/**
+ * The reverse-engineering question, answered with a power curve rather than a
+ * refusal: the input was never recorded, so nothing can be inverted — and here
+ * is how large a bias the archive could see anyway.
+ */
+function identifiabilityCard(state: AppState): string {
+  const draws = state.draws.length;
+  const rows = [64, 128, 256, 512].map((n) => ({
+    n,
+    tilt20: powerToDetect(0.2, n, 200),
+    tilt40: powerToDetect(0.4, n, 200),
+  }));
+  return card(`
+    <div class="flex flex-wrap items-start justify-between gap-2">
+      <div>
+        <h2 class="text-sm font-semibold text-slate-100">Why the timing cannot be reverse-engineered</h2>
+        <p class="text-[11px] leading-relaxed text-slate-400">${esc(NO_INVERSE)}</p>
+      </div>
+      ${badge('no inverse exists', 'muted')}
+    </div>
+
+    <p class="mt-3 text-[11px] leading-relaxed text-slate-300">
+      ${esc(whatTheArchiveCanSee(draws))}
+    </p>
+
+    <div class="mt-3 overflow-x-auto rounded-lg border border-white/10">
+      <table class="w-full min-w-[420px] text-left text-[11px]">
+        <thead class="bg-[#0b1120] text-[10px] uppercase tracking-wide text-slate-500">
+          <tr><th class="px-2 py-1">Draws</th><th class="px-2 py-1">Catches a 20% tilt</th><th class="px-2 py-1">Catches a 40% tilt</th></tr>
+        </thead>
+        <tbody>
+          ${rows
+            .map(
+              (r) => `<tr class="border-t border-white/5">
+                <td class="px-2 py-1 ${r.n === draws ? 'text-amber-300' : 'text-slate-300'}">${r.n}${r.n === draws ? ' (now)' : ''}</td>
+                <td class="px-2 py-1 text-slate-400">${(r.tilt20 * 100).toFixed(0)}% of the time</td>
+                <td class="px-2 py-1 text-slate-400">${(r.tilt40 * 100).toFixed(0)}% of the time</td>
+              </tr>`
+            )
+            .join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <p class="mt-2 text-[10px] leading-snug text-slate-500">
+      A test that finds nothing at 64 draws is not evidence of a fair drum — it is a test with almost no
+      power. That distinction matters here: it is why "we could not detect it" must never be retold as
+      "we checked and it is fine".
+    </p>`);
+}
+
+/**
+ * The tempting theory, tested with the only part of the record it can touch.
+ *
+ * Nothing in a result holds a duration, so press and shake times cannot be
+ * recovered from numbers. What the record does hold is release order — so the
+ * card runs that test, reports the raw p-value, and then reports the two checks
+ * that decide whether to believe it.
+ */
+function orderCard(state: AppState): string {
+  const test = firstBallTest(state.draws);
+  const half = Math.floor(state.draws.length / 2);
+  const first = firstBallTest(state.draws.slice(0, half));
+  const second = firstBallTest(state.draws.slice(half));
+  const profile = positionProfile(state.draws);
+  const replicated = test.p < 0.05 && first.p < 0.05 && second.p < 0.05;
+  return card(`
+    <div class="flex flex-wrap items-start justify-between gap-2">
+      <div>
+        <h2 class="text-sm font-semibold text-slate-100">Can the drum's timing be read from the numbers?</h2>
+        <p class="text-[11px] text-slate-400">${esc(TIMING_IS_NOT_IN_THE_NUMBERS)}</p>
+      </div>
+      ${badge(replicated ? 'look twice' : 'no signal', replicated ? 'warn' : 'muted')}
+    </div>
+
+    <p class="mt-3 text-[11px] leading-relaxed text-slate-300">
+      What the record <i>does</i> hold is the order the balls left. If the machine mixed unevenly, the
+      first ball would favour part of the drum. Nine equal buckets of ten, ${test.draws} draws:
+      χ² = ${test.chi.toFixed(2)} on ${test.df} degrees of freedom, <b class="text-slate-100">p = ${test.p.toFixed(3)}</b>.
+    </p>
+
+    <div class="mt-2 grid gap-2 text-[11px] sm:grid-cols-3">
+      ${stat('First half', `${first.draws} draws`, `p = ${first.p.toFixed(2)}`)}
+      ${stat('Second half', `${second.draws} draws`, `p = ${second.p.toFixed(2)}`)}
+      ${stat('Whole test', replicated ? 'repeated' : 'did not repeat', 'split-half check')}
+    </div>
+
+    <p class="mt-2 text-[11px] leading-relaxed text-slate-400">
+      ${
+        test.p < 0.05
+          ? `The raw figure nudges past 0.05, which is what one test out of many usually does. Split in half it does not
+            repeat (p = ${first.p.toFixed(2)} and ${second.p.toFixed(2)}), so the honest reading is noise — and even if it were
+            real it would only say <i>which decade tends to leave first</i>, never which five numbers.`
+          : `Nothing here says the machine favours any part of the drum, and nothing in a result could tell you how long the
+            button was held.`
+      }
+    </p>
+
+    <div class="mt-3 overflow-x-auto rounded-lg border border-white/10">
+      <table class="w-full min-w-[380px] text-left text-[11px]">
+        <thead class="bg-[#0b1120] text-[10px] uppercase tracking-wide text-slate-500">
+          <tr><th class="px-2 py-1">Release position</th><th class="px-2 py-1">Mean ball</th><th class="px-2 py-1">Share from 1–10</th></tr>
+        </thead>
+        <tbody>
+          ${profile
+            .map(
+              (r) => `<tr class="border-t border-white/5">
+                <td class="px-2 py-1 text-slate-200">${r.position}</td>
+                <td class="px-2 py-1 text-slate-300">${Number.isFinite(r.meanNumber) ? r.meanNumber.toFixed(1) : '—'}</td>
+                <td class="px-2 py-1 text-slate-400">${Number.isFinite(r.lowBucketShare) ? `${(r.lowBucketShare * 100).toFixed(0)}%` : '—'}</td>
+              </tr>`
+            )
+            .join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <p class="mt-2 text-[10px] leading-snug text-slate-500">
+      One test, one p-value, ${test.draws} draws: treat a single 0.05 as a reason to keep watching, never as a reason to
+      stake. The stopwatch above is still the only instrument that measures the walk and the shake.
+    </p>`);
+}
+
 /**
  * When the result reached us — the only timing the app can measure unaided.
  *
@@ -837,8 +964,9 @@ function latencyCard(state: AppState): string {
           </div>
           <button type="button" data-action="latency-export" class="btn btn-ghost mt-2">Export this log (CSV)</button>`
         : `<p class="mt-2 text-[11px] leading-relaxed text-slate-400">
-            Nothing recorded yet. The log fills itself the first time this browser sees a result —
-            no button, no typing, and it never rewrites a stamp once taken.
+            Nothing recorded yet. The log fills itself the first time this browser sees a <i>new</i>
+            result — no button, no typing, and it never rewrites a stamp once taken. Older draws in
+            the archive are not stamped: a first visit is not an arrival.
           </p>`
     }
 
@@ -1162,6 +1290,8 @@ export function renderLab(state: AppState): string {
       </p>
     `)}
 
+    ${identifiabilityCard(state)}
+    ${orderCard(state)}
     ${stopwatchCard(state)}
     ${latencyCard(state)}
 

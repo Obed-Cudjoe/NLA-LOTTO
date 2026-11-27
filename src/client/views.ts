@@ -39,6 +39,7 @@ import {
 import { betTypes, coverage, linesForConfidence } from '../bets';
 import { isDrawPast } from '../pickBook';
 import { buildLedger, ledgerToCsv, nearMissRecord, planHorizon } from '../trainingLog';
+import { describeGap, summariseLatency } from '../resultLatency';
 import {
   bestDirect1Ev,
   breakEvenShakeSeconds,
@@ -783,6 +784,71 @@ export function renderDeduction(state: AppState): string {
  * Draw lab — what each bet returns, and whether the machine can be read
  * ========================================================================== */
 
+
+/**
+ * When the result reached us — the only timing the app can measure unaided.
+ *
+ * The drum's running time and the guest's walk are invisible to any published
+ * source, so they stay where they belong: in the stopwatch and the journal. What
+ * this card adds is the half that is measurable — the gap between the 20:30 bell
+ * and the moment our archive first held the numbers — with the difference spelled
+ * out so the two are never confused.
+ */
+function latencyCard(state: AppState): string {
+  const records = state.latency ?? [];
+  const sum = summariseLatency(records);
+  const recent = [...records].slice(-8).reverse();
+  return card(`
+    <div class="flex flex-wrap items-start justify-between gap-2">
+      <div>
+        <h2 class="text-sm font-semibold text-slate-100">When the result reached us</h2>
+        <p class="text-[11px] text-slate-400">
+          First sighting of each result, stamped by this browser — not the drum, not the walk.
+          It measures the machine from the closing bell to our copy of the numbers.
+        </p>
+      </div>
+      ${badge(sum.records ? `${sum.records} timed` : 'starts tonight', sum.records ? 'info' : 'muted')}
+    </div>
+
+    ${
+      sum.records
+        ? `<div class="mt-3 grid gap-2 text-[11px] sm:grid-cols-3">
+            ${stat('Median gap', sum.medianMinutes === null ? '—' : describeGap(sum.medianMinutes), 'after the 20:30 bell')}
+            ${stat('Fastest', sum.fastest ? describeGap(sum.fastest.minutesAfterClose) : '—', sum.fastest?.draw_date ?? '')}
+            ${stat('Late ones', String(sum.late), 'over 4 hours — source problem')}
+          </div>
+          <div class="mt-3 max-h-56 overflow-auto rounded-lg border border-white/10">
+            <table class="w-full min-w-[420px] text-left text-[11px]">
+              <thead class="sticky top-0 bg-[#0b1120] text-[10px] uppercase tracking-wide text-slate-500">
+                <tr><th class="px-2 py-1">Draw</th><th class="px-2 py-1">First seen (UTC)</th><th class="px-2 py-1">Gap</th></tr>
+              </thead>
+              <tbody>
+                ${recent
+                  .map(
+                    (r) => `<tr class="border-t border-white/5">
+                      <td class="px-2 py-1 text-slate-300">${esc(r.draw_date)} · ${esc(r.game_name)}</td>
+                      <td class="px-2 py-1 text-slate-400">${esc(r.firstSeenAt.replace('T', ' ').slice(0, 19))}</td>
+                      <td class="px-2 py-1 ${r.minutesAfterClose > 240 ? 'text-amber-300' : 'text-slate-400'}">${esc(describeGap(r.minutesAfterClose))}</td>
+                    </tr>`
+                  )
+                  .join('')}
+              </tbody>
+            </table>
+          </div>
+          <button type="button" data-action="latency-export" class="btn btn-ghost mt-2">Export this log (CSV)</button>`
+        : `<p class="mt-2 text-[11px] leading-relaxed text-slate-400">
+            Nothing recorded yet. The log fills itself the first time this browser sees a result —
+            no button, no typing, and it never rewrites a stamp once taken.
+          </p>`
+    }
+
+    <p class="mt-2 text-[10px] leading-snug text-slate-500">
+      Careful with the retelling: a result seen 14 minutes after the bell says something about a
+      website, and nothing about how long the drum mixed. The walk and the shake stay in the stopwatch
+      and the journal above, where you measured them.
+    </p>`);
+}
+
 /** Rows for the timing journal table, newest first. */
 function journalRows(entries: AppState['journal']): string {
   if (!entries.length) {
@@ -1097,6 +1163,7 @@ export function renderLab(state: AppState): string {
     `)}
 
     ${stopwatchCard(state)}
+    ${latencyCard(state)}
 
     ${card(`
       <div class="flex flex-wrap items-start justify-between gap-2">

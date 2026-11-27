@@ -59,6 +59,8 @@ export interface AppState {
   lab: MixingInput;
   /** Timings the player logged themselves (walk seconds, first ball). */
   journal: TimingEntry[];
+  /** First-sighting timestamps for results, this browser's own measurement. */
+  latency: import('../resultLatency').LatencyRecord[];
   /**
    * Stopwatch marks taken live from the broadcast. `performance.now()` marks
    * while running; the finished values in seconds once stopped.

@@ -178,7 +178,24 @@ Two is a 1-in-44 evening that pays nothing — and it happens, which is why the 
 than explaining it away. The backtester reports how many such draws the archive holds against the
 0.89 chance expects, with a binomial p-value, and names the dates.
 
-### The training ledger, and a verdict written before the draws
+### When the result reached us (`src/resultLatency.ts`)
+
+Two timings matter here and only one can be measured without you. The drum's mixing time and the
+guest's walk appear in no public source, so they stay in the stopwatch and the timing journal, where
+you timed them off the broadcast. The half that *is* measurable — the gap between the 20:30 GMT
+closing bell and the moment a result first appeared in this archive — is stamped automatically, once,
+and never rewritten:
+
+| | |
+|---|---|
+| Median gap | reported in minutes after the bell |
+| Late results | flagged past 4 hours as a source problem, not a scheduling one |
+| Export | CSV, so the log can be checked outside the browser |
+
+The card says the distinction out loud, because "the result came at 20:46" is the kind of fact that
+gets retold as "the draw took 46 minutes".
+
+### Training on every draw (`src/fit.ts`)
 
 Every draw now becomes a scored row: the line the model published before it, what landed, how many
 of the five hit, whether the pair won, how many of the trio. `buildLedger()` derives it from the

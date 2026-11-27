@@ -108,8 +108,12 @@ describe('dashboard (static mode)', () => {
     expect(appText()).toContain('2-Sure');
     expect(appText()).toContain('3-Direct');
     expect(appText()).toContain('Pre-draw rank');
-    // Honest wording: a blank line is the normal outcome, not a failure.
-    expect(appText()).toMatch(/most likely outcome/i);
+    // Honest wording either way: the card states what chance offers rather than
+    // whether the drum "listened". The trio can land by luck, so the phrasing
+    // branches — assert the invariant, not one branch (this broke CI the first
+    // morning a result arrived that hit the trio).
+    expect(appText()).toMatch(/expected hits per draw is 0\.17/);
+    expect(appText()).toMatch(/trio landed|trio/);
   });
 
   it('defaults to the next draw that is still open, not to a draw already held', () => {
@@ -550,6 +554,9 @@ describe('dashboard (static mode)', () => {
 
     // The journal form is prefilled, so logging is one tap.
     await waitFor(() => appText().includes('Timing journal'), 'journal card');
+    // The measurable half of the timing sits right beside the logged half.
+    expect(appText()).toContain('When the result reached us');
+    expect(appText()).toContain('not the drum, not the walk');
     const jWalk = document.getElementById('j-walk') as HTMLInputElement;
     const jShake = document.getElementById('j-shake') as HTMLInputElement;
     expect(Number(jWalk.value)).toBeCloseTo(walk, 1);

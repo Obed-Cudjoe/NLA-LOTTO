@@ -1,6 +1,7 @@
 /** localStorage persistence + static-mode GitHub bridge. Browser only. */
 import { DEFAULT_CONFIG, normalizeHistory, type Draw, type EngineConfig } from '../mathEngine';
 import type { TimingEntry } from '../timingJournal';
+import type { LatencyRecord } from '../resultLatency';
 import type { PickRecord } from '../pickBook';
 import type { MixingInput } from '../mixing';
 import type { AppState, Settings } from './types';
@@ -14,6 +15,7 @@ const KEYS = {
   journal: `${PREFIX}journal`,
   pickBook: `${PREFIX}pickBook`,
   prices: `${PREFIX}prices`,
+  latency: `${PREFIX}latency`,
 } as const;
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -69,6 +71,8 @@ export interface UiPrefs {
 }
 export const loadJournal = (): TimingEntry[] => read<TimingEntry[]>(KEYS.journal, []);
 export const saveJournal = (entries: TimingEntry[]): void => write(KEYS.journal, entries);
+export const loadLatency = (): LatencyRecord[] => read<LatencyRecord[]>(KEYS.latency, []);
+export const saveLatency = (records: LatencyRecord[]): void => write(KEYS.latency, records);
 
 /** Lines this browser has committed to, scored once the draw is known. */
 export const loadPrices = (): Partial<Record<string, number>> =>

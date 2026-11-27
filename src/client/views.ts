@@ -837,8 +837,9 @@ function latencyCard(state: AppState): string {
           </div>
           <button type="button" data-action="latency-export" class="btn btn-ghost mt-2">Export this log (CSV)</button>`
         : `<p class="mt-2 text-[11px] leading-relaxed text-slate-400">
-            Nothing recorded yet. The log fills itself the first time this browser sees a result —
-            no button, no typing, and it never rewrites a stamp once taken.
+            Nothing recorded yet. The log fills itself the first time this browser sees a <i>new</i>
+            result — no button, no typing, and it never rewrites a stamp once taken. Older draws in
+            the archive are not stamped: a first visit is not an arrival.
           </p>`
     }
 

@@ -40,7 +40,9 @@ function closeInstant(draw_date: string): number {
 export function mergeSightings(
   existing: readonly LatencyRecord[],
   draws: ReadonlyArray<{ draw_date: string; game_name: string }>,
-  nowIso: string
+  nowIso: string,
+  /** How far back a result may be and still count as "seen arriving". */
+  maxAgeHours = 30
 ): LatencyRecord[] {
   const known = new Set(existing.map((r) => `${r.draw_date}|${r.game_name}`));
   const now = Date.parse(nowIso);
@@ -48,8 +50,17 @@ export function mergeSightings(
   for (const d of draws) {
     const key = `${d.draw_date}|${d.game_name}`;
     if (known.has(key)) continue;
+    const elapsedMin = (now - closeInstant(d.draw_date)) / 60_000;
+    // A browser opening for the first time sees the whole archive at once. Those
+    // are not arrivals — stamping them "now" would report a two-month gap for
+    // every old draw and make the median meaningless. Only results that were
+    // genuinely overdue arrive into the log.
+    if (!(elapsedMin >= -maxAgeHours * 60 && elapsedMin <= maxAgeHours * 60)) {
+      known.add(key);
+      continue;
+    }
     known.add(key);
-    const minutesAfterClose = Math.max(0, Math.round((now - closeInstant(d.draw_date)) / 60_000));
+    const minutesAfterClose = Math.max(0, Math.round(elapsedMin));
     added.push({ draw_date: d.draw_date, game_name: d.game_name, firstSeenAt: nowIso, minutesAfterClose });
   }
   return added.length ? [...existing, ...added].sort((a, b) => a.firstSeenAt.localeCompare(b.firstSeenAt)) : [...existing];

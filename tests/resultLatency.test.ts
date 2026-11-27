@@ -18,6 +18,17 @@ describe('result latency — the one timing the app can measure alone', () => {
     expect(second.find((r) => r.game_name === 'Midweek')!.firstSeenAt).toBe('2026-11-25T20:44:00Z');
   });
 
+  it('does not stamp the whole back catalogue on a first visit', () => {
+    // A first-time browser sees 64 old draws at once; only the fresh one arrives.
+    const archive = [
+      { draw_date: '2026-09-10', game_name: 'National Weekly' },
+      { draw_date: '2026-11-26', game_name: 'Fortune Thursday' },
+    ];
+    const rows = mergeSightings([], archive, '2026-11-27T02:10:00Z');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].draw_date).toBe('2026-11-26');
+  });
+
   it('never reports a negative gap for a next-day pull', () => {
     const rows = mergeSightings([], [{ draw_date: '2026-11-26', game_name: 'Fortune Thursday' }], '2026-11-26T09:00:00Z');
     expect(rows[0].minutesAfterClose).toBe(0);
